@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callClaudeJson } from '@/lib/ai/claudeClient';
-import { checkRateLimit } from '@/lib/ai/rateLimit';
+import { callUniversalAIJson, AIAnalysisUnavailableError } from '@/lib/ai/universalAI';
+import { checkRateLimit, computeContentHash, getCachedAnalysis, setCachedAnalysis } from '@/lib/ai/rateLimit';
 import { StudentProfile, TargetRole, SuitabilityAnalysis, SkillGap } from '@/types';
-import { AIService } from '@/lib/ai/aiService';
 
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'anon';
-    const rateCheck = checkRateLimit(`ai-suitability-${ip}`, 30);
+    const rateCheck = checkRateLimit(`ai-suitability-${ip}`, 45);
     if (!rateCheck.success) {
-      return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
+      return NextResponse.json(
+        {
+          error: 'rate_limited',
+          message: rateCheck.message || 'Too many requests. Please wait a moment.',
+        },
+        { status: 429 }
+      );
     }
+
+    const { getAIAuthContext } = await import('@/lib/ai/aiAuth');
+    const auth = await getAIAuthContext();
+    if (!auth.isAuthenticated && !auth.isDemo) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { action, profile, targetRole } = body as {
       action?: 'suitability' | 'skillGaps' | 'jobRequirements';
@@ -22,97 +34,147 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'targetRole is required' }, { status: 400 });
     }
 
+    // 1. Action: skillGaps
     if (action === 'skillGaps') {
       if (!profile) {
         return NextResponse.json({ error: 'profile is required for skillGaps' }, { status: 400 });
       }
-      const fallback = (): SkillGap[] => {
-        return AIService.identifySkillGaps(profile, targetRole);
-      };
 
-      const systemPrompt = `You are CareerOS AI Skill Gap Engine.
-Analyze the student's current proficiency vs the required proficiencies for the target role.
-Return ONLY an array of objects adhering to this TypeScript interface:
-interface SkillGap {
-  skillName: string;
-  category: string;
-  currentLevel: number; // 0 to 100
-  requiredLevel: number; // 0 to 100
-  gap: number; // requiredLevel - currentLevel (max(0, diff))
-  priority: 'Critical' | 'High' | 'Medium' | 'Low';
-  reason: string;
-}`;
+      const cacheKey = computeContentHash(
+        JSON.stringify({ skills: profile.skills, role: targetRole.id }),
+        'skillGaps'
+      );
+      const cached = getCachedAnalysis<SkillGap[]>(cacheKey);
+      if (cached) {
+        return NextResponse.json({ gaps: cached, cached: true });
+      }
 
-      const userPrompt = `Target Role: ${targetRole.title}\nRequired Skills: ${JSON.stringify(targetRole.requiredSkills)}\nStudent Skills: ${JSON.stringify(profile.skills)}`;
+      const systemPrompt = `You are CareerOS AI Skill Gap & Diagnostic Engine.
+Evaluate the student's verified skills against the required competencies for: "${targetRole.title}".
+SEMANTIC MATCHING RULES:
+1. Recognize technology equivalents & synonyms (e.g. "React.js" = "React", "Postgres" = "PostgreSQL", "Node" = "Node.js", "K8s" = "Kubernetes", "AWS" = "Amazon Web Services", "Golang" = "Go").
+2. For each requirement, determine student's effective proficiency (0 to 100) based on direct skills or semantic equivalents.
+3. Compute gap = Math.max(0, requiredLevel - currentLevel).
+4. Assign priority:
+   - "Critical": if the skill is critical for the target role AND gap > 20
+   - "High": if gap > 20 or critical
+   - "Medium": if gap between 10 and 20
+   - "Low": if gap <= 10
+5. Provide a role-specific reason and concrete recommended action for closing the gap.
 
-      const gaps = await callClaudeJson<SkillGap[]>({
+Return ONLY a JSON array strictly conforming to this schema:
+[
+  {
+    "skillName": string,
+    "category": string,
+    "currentLevel": number,
+    "requiredLevel": number,
+    "gap": number,
+    "priority": "Critical" | "High" | "Medium" | "Low",
+    "reason": string,
+    "recommendedAction": string
+  }
+]`;
+
+      const userPrompt = `Target Role: ${targetRole.title} (${targetRole.category})
+Required Skills:
+${JSON.stringify(targetRole.requiredSkills, null, 2)}
+
+Student Skills:
+${JSON.stringify(profile.skills, null, 2)}`;
+
+      const gaps = await callUniversalAIJson<SkillGap[]>({
         systemPrompt,
         userPrompt,
-        fallback
+        temperature: 0.15,
       });
 
+      setCachedAnalysis(cacheKey, gaps);
       return NextResponse.json({ gaps });
     }
 
-    if (action === 'jobRequirements') {
-      const fallback = () => AIService.analyzeJobRequirements(targetRole);
-
-      const systemPrompt = `You are CareerOS Job Requirement Analyst. Return high-level requirement breakdown JSON.`;
-      const userPrompt = `Target Role: ${JSON.stringify(targetRole)}`;
-
-      const analysis = await callClaudeJson({
-        systemPrompt,
-        userPrompt,
-        fallback
-      });
-
-      return NextResponse.json(analysis);
-    }
-
-    // Default: calculateJobSuitability
+    // 2. Action: calculateJobSuitability (Default)
     if (!profile) {
       return NextResponse.json({ error: 'profile is required for suitability analysis' }, { status: 400 });
     }
 
-    const fallback = (): SuitabilityAnalysis => {
-      return AIService.calculateJobSuitability(profile, targetRole);
-    };
+    const cacheKey = computeContentHash(
+      JSON.stringify({
+        skills: profile.skills,
+        cgpa: profile.cgpa,
+        role: targetRole.id,
+      }),
+      'suitability'
+    );
+    const cached = getCachedAnalysis<SuitabilityAnalysis>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
 
     const systemPrompt = `You are CareerOS Job Suitability Evaluation Engine.
-Benchmark candidate against target role specifications.
-Return ONLY JSON adhering to this TypeScript interface:
-interface SuitabilityAnalysis {
-  overallMatch: number; // 0 to 100
-  skillsScore: number; // 0 to 100
-  educationScore: number; // 0 to 100
-  projectsScore: number; // 0 to 100
-  experienceScore: number; // 0 to 100
-  resumeAlignmentScore: number; // 0 to 100
-  strongMatches: string[];
-  missingSkills: string[];
-  roleInsights: string;
-  recommendedFocus: string;
+Benchmark candidate against target role specifications using deep SEMANTIC understanding.
+
+CRITICAL EVALUATION GUIDELINES:
+1. SEMANTIC EQUIVALENCE: Treat synonyms and framework derivatives as matches (e.g. "React.js" and "React", "Postgres" and "PostgreSQL", "FastAPI" and "REST APIs", "PyTorch" and "Deep Learning").
+2. CONTEXTUAL SKILLS: Infer implied competencies from candidate skills (e.g. knowing Docker + Kubernetes demonstrates Container Orchestration & DevOps; knowing Git + multi-developer projects demonstrates Team Collaboration & Version Control).
+3. Compute honest, multi-dimensional scores (0-100):
+   - skills: alignment with target technical competencies
+   - experience: depth of demonstrated knowledge for entry/associate level
+   - education: candidate CGPA (${profile.cgpa || 8.0}/10) & degree alignment with ${targetRole.educationExpectations || 'B.Tech CSE/IT'}
+   - projects: alignment of candidate profile with ${targetRole.experienceExpectations || 'production backend projects'}
+   - resume: overall profile readiness
+   - overallMatch: weighted composite (skills 40%, experience 20%, projects 20%, education 10%, resume 10%)
+
+Return ONLY valid JSON strictly matching this schema:
+{
+  "overallMatch": number, // 0 to 100
+  "roleId": "${targetRole.id}",
+  "roleTitle": "${targetRole.title}",
+  "breakdown": {
+    "skills": number,
+    "experience": number,
+    "education": number,
+    "projects": number,
+    "resume": number
+  },
+  "strongMatches": string[], // Competencies where candidate meets/exceeds requirements
+  "missingSkills": string[], // Competencies where candidate has deficit
+  "criticalGaps": string[], // Critical non-negotiables the candidate must acquire
+  "aiSummary": string, // 2 sentences synthesizing fit and biggest leverage point
+  "improvementTip": string // 1 concrete actionable recommendation
 }`;
 
-    const userPrompt = `Candidate Profile:
-Name: ${profile.fullName}
-Degree: ${profile.degree} (${profile.branch})
-CGPA: ${profile.cgpa}
-Skills: ${profile.skills.map(s => `${s.name}: ${s.currentProficiency}%`).join(', ')}
+    const userPrompt = `Target Role: ${targetRole.title} (${targetRole.category})
+Salary Range: ${targetRole.salaryRange}
+Required Competencies:
+${JSON.stringify(targetRole.requiredSkills, null, 2)}
 
-Target Role: ${targetRole.title} (${targetRole.category})
-Required Skills: ${targetRole.requiredSkills.map(s => `${s.name}: ${s.requiredProficiency}% (Critical: ${s.critical})`).join(', ')}
-Education Expectations: ${targetRole.educationExpectations}`;
+Candidate Profile:
+- Degree & Branch: ${profile.degree || 'B.Tech'} ${profile.branch || 'CSE'}, CGPA: ${profile.cgpa || 8.0}
+- Skills:
+${JSON.stringify(profile.skills, null, 2)}`;
 
-    const suitability = await callClaudeJson<SuitabilityAnalysis>({
+    const analysis = await callUniversalAIJson<SuitabilityAnalysis>({
       systemPrompt,
       userPrompt,
-      fallback
+      temperature: 0.15,
     });
 
-    return NextResponse.json(suitability);
+    setCachedAnalysis(cacheKey, analysis);
+    return NextResponse.json(analysis);
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Suitability error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[API /api/ai/suitability Error]:', e);
+    if (e instanceof AIAnalysisUnavailableError) {
+      return NextResponse.json(
+        {
+          error: 'analysis_unavailable',
+          message: e.message,
+          retryable: true,
+        },
+        { status: 503 }
+      );
+    }
+    const message = e instanceof Error ? e.message : 'Internal suitability analysis error';
+    return NextResponse.json({ error: message, retryable: true }, { status: 500 });
   }
 }

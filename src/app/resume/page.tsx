@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   FileCheck, 
   Sparkles, 
@@ -13,20 +13,37 @@ import {
   Copy,
   Upload,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  FileUp,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
 import { TopNav } from '@/components/navigation/TopNav';
 import { StudentSidebar } from '@/components/navigation/StudentSidebar';
-import { AIInsight } from '@/components/ai/AIInsight';
-import { cn } from '@/lib/utils';
+import { StatMetric } from '@/components/ui/StatMetric';
+import { Button } from '@/components/ui/Button';
+import { Card, GlowCard } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { ProgressRing, ProgressBar } from '@/components/ui/ProgressRing';
+import { Modal } from '@/components/ui/Modal';
+import { soundFX } from '@/components/effects/SoundFX';
 
 export default function ResumePage() {
-  const { resumeData, updateResumeBullet, uploadResumeText, activeTargetRole } = useApp();
+  const { resumeData, updateResumeBullet, uploadResumeText, setResumeData, activeTargetRole } = useApp();
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+
+  // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadMode, setUploadMode] = useState<'file' | 'text'>('file');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [customResumeText, setCustomResumeText] = useState('');
+  
+  // Progress states
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'uploading' | 'parsing' | 'benchmarking' | 'complete' | 'error'>('idle');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -34,318 +51,388 @@ export default function ResumePage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleCustomResumeUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customResumeText.trim()) return;
-    setIsUploading(true);
-    await uploadResumeText(customResumeText);
-    setIsUploading(false);
-    setShowUploadModal(false);
-    setCustomResumeText('');
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setUploadError(null);
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max allowed size is 10MB.`);
+      setSelectedFile(null);
+      return;
+    }
+
+    const validExtensions = ['pdf', 'docx', 'doc', 'txt'];
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ext || !validExtensions.includes(ext)) {
+      setUploadError('Invalid format. Please upload PDF, DOCX, or TXT.');
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
   };
 
+  const handleResumeFileUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile && uploadMode === 'file') return;
+    if (!customResumeText.trim() && uploadMode === 'text') return;
+
+    setUploadError(null);
+    setUploadPhase('uploading');
+    setUploadProgress(0);
+
+    const formData = new FormData();
+    if (uploadMode === 'file' && selectedFile) {
+      formData.append('file', selectedFile);
+    } else {
+      formData.append('text', customResumeText.trim());
+    }
+    formData.append('targetRoleId', activeTargetRole.id);
+
+    try {
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener('progress', (evt) => {
+        if (evt.lengthComputable) {
+          const percent = Math.round((evt.loaded / evt.total) * 100);
+          setUploadProgress(percent);
+          if (percent >= 100) {
+            setUploadPhase('parsing');
+          }
+        }
+      });
+
+      const responsePromise = new Promise<{ success: boolean; resumeData: typeof resumeData; error?: string }>((resolve, reject) => {
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const parsed = JSON.parse(xhr.responseText);
+                resolve(parsed);
+              } catch {
+                reject(new Error('Failed to parse server response.'));
+              }
+            } else {
+              try {
+                const errJson = JSON.parse(xhr.responseText);
+                reject(new Error(errJson.error || `Upload failed with HTTP ${xhr.status}`));
+              } catch {
+                reject(new Error(`Server error: HTTP ${xhr.status}`));
+              }
+            }
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error during upload.'));
+      });
+
+      xhr.open('POST', '/api/resume/upload');
+      xhr.send(formData);
+
+      const result = await responsePromise;
+
+      if (result.success && result.resumeData) {
+        setUploadPhase('complete');
+        setResumeData(result.resumeData);
+        soundFX.playSuccess();
+        setTimeout(() => {
+          setShowUploadModal(false);
+          setUploadPhase('idle');
+          setSelectedFile(null);
+          setCustomResumeText('');
+        }, 1200);
+      } else {
+        throw new Error(result.error || 'Resume parsing failed.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      console.warn('Resume upload error:', msg);
+      setUploadPhase('error');
+      setUploadError(msg);
+      soundFX.playPulse();
+    }
+  };
+
+  const handleAcceptBullet = (id: string) => {
+    soundFX.playClick();
+    updateResumeBullet(id, true);
+    soundFX.playSuccess();
+  };
+
+  const handleRejectBullet = (id: string) => {
+    soundFX.playClick();
+    updateResumeBullet(id, false);
+  };
+
+  const atsScore = resumeData.atsScore || 0;
+
   return (
-    <div className="min-h-screen bg-[#080B12] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
         <StudentSidebar />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8 overflow-y-auto">
+        <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
-                Recruitment Intelligence
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-1">
-                ATS Resume Optimization
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-mono mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                <span>ATS RESUME OPTIMIZATION ENGINE</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Resume Ingestion & ATS Match
               </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Calibrated against applicant tracking system (ATS) filters for {activeTargetRole.title}.
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
+                Calibrated against {activeTargetRole.title} applicant tracking system parsers.
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-[#161e2e] hover:bg-[#202938] border border-[#202938] text-slate-200 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
-              >
-                <Upload className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Paste / Upload Resume Text</span>
-              </button>
-
-              <span className="text-xs text-slate-400 font-mono hidden sm:inline">
-                {resumeData.fileName}
-              </span>
-            </div>
+            <Button
+              variant="primary"
+              size="md"
+              leftIcon={<Upload className="w-4 h-4" />}
+              onClick={() => {
+                soundFX.playClick();
+                setShowUploadModal(true);
+              }}
+            >
+              Upload New Resume
+            </Button>
           </div>
 
-          {/* AI ATS Recommendation Callout */}
-          <AIInsight
-            title="CareerOS ATS Parser Feedback"
-            badge="Scoring Calibrated"
-            variant="cyan"
-          >
-            {resumeData.summaryFeedback}
-          </AIInsight>
+          {/* Top Scorecard Banner */}
+          <GlowCard glowColor="cyan" className="p-6 sm:p-8 bg-[var(--surface-primary)] border border-[var(--border-default)]">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+              {/* Score Dial */}
+              <div className="md:col-span-4 flex flex-col items-center md:items-start text-center md:text-left space-y-2 md:border-r border-[var(--border-subtle)] md:pr-8">
+                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider font-bold">
+                  Composite ATS Score
+                </span>
+                <div className="flex items-center gap-4">
+                  <ProgressRing value={atsScore} size={80} strokeWidth={7} variant="cyan" />
+                  <div>
+                    <h3 className="text-xl font-bold text-white">
+                      {atsScore >= 80 ? 'ATS Optimized' : atsScore >= 60 ? 'Competitive' : 'Needs Optimization'}
+                    </h3>
+                    <p className="text-xs text-[var(--text-muted)] font-mono">{resumeData.fileName || 'Uploaded_Resume.pdf'}</p>
+                  </div>
+                </div>
+              </div>
 
-          {/* Main 2-Column Layout */}
+              {/* Vector Breakdown */}
+              <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Keywords</span>
+                  <span className="text-lg font-mono font-bold text-white mt-1 block">{resumeData.scores.keywordMatch}%</span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Impact Metrics</span>
+                  <span className="text-lg font-mono font-bold text-white mt-1 block">{resumeData.scores.impactStatements}%</span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Formatting</span>
+                  <span className="text-lg font-mono font-bold text-white mt-1 block">{resumeData.scores.formatting}%</span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Role Fit</span>
+                  <span className="text-lg font-mono font-bold text-cyan-400 mt-1 block">{resumeData.scores.roleAlignment}%</span>
+                </div>
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Missing Keywords & Suggested Bullet Improvements */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left: Interactive Resume Preview (6 cols) */}
-            <div className="lg:col-span-6 bg-[#111722] border border-[#202938] rounded-2xl p-6 space-y-6 shadow-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-[#202938]">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-white">Parsed Document View</span>
-                </div>
-                <span className="text-[11px] text-slate-400 font-mono">Format: Clean Single-Column</span>
+            {/* Left: AI Bullet Improvements (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="flex items-center justify-between pb-2">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  AI High-Impact Bullet Rewrites
+                </h3>
+                <span className="text-xs font-mono text-[var(--text-muted)]">
+                  {resumeData.suggestedImprovements.length} Pending
+                </span>
               </div>
 
-              {/* Simulated Rendered Resume Content */}
-              <div className="p-5 rounded-xl bg-[#080b12] border border-[#202938] text-xs space-y-4 text-slate-300 font-sans">
-                {/* Header */}
-                <div className="text-center pb-3 border-b border-[#202938]">
-                  <h3 className="text-base font-bold text-white tracking-wide">JASMANJOT SINGH</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Jaipur, India • jasmanjot.singh@jecrc.ac.in • +91 98765 43210 • github.com/jasmanjot
-                  </p>
-                </div>
-
-                {/* Education */}
-                <div className="space-y-1">
-                  <span className="text-[11px] uppercase font-bold text-cyan-400 block tracking-wider">EDUCATION</span>
-                  <div className="flex justify-between font-medium text-slate-200">
-                    <span>JECRC University — B.Tech Computer Science (AI & ML)</span>
-                    <span className="font-mono text-slate-400">2022 - 2026</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">CGPA: 8.64 / 10.0 • Relevant Coursework: Data Structures, OS, DBMS</p>
-                </div>
-
-                {/* Technical Skills */}
-                <div className="space-y-1">
-                  <span className="text-[11px] uppercase font-bold text-cyan-400 block tracking-wider">TECHNICAL SKILLS</span>
-                  <p className="text-[11px] leading-relaxed">
-                    <strong className="text-white">Languages:</strong> Python, C++, SQL, JavaScript <br />
-                    <strong className="text-white">Frameworks & Tools:</strong> FastAPI, React, Git, Docker, PostgreSQL
-                  </p>
-                </div>
-
-                {/* Experience & Projects */}
-                <div className="space-y-2">
-                  <span className="text-[11px] uppercase font-bold text-cyan-400 block tracking-wider">PROJECTS & EXPERIENCE</span>
-                  <div className="space-y-1">
-                    <div className="flex justify-between font-semibold text-slate-200">
-                      <span>Order Processing Microservice</span>
-                      <span className="font-mono text-slate-400">FastAPI, PostgreSQL</span>
+              {resumeData.suggestedImprovements.length === 0 ? (
+                <Card className="p-8 text-center bg-[var(--surface-primary)] border border-[var(--border-subtle)]">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
+                  <h4 className="text-sm font-bold text-white">All Bullet Suggestions Applied</h4>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Your experience bullets contain quantified metrics and action verbs.</p>
+                </Card>
+              ) : (
+                resumeData.suggestedImprovements.map((imp) => (
+                  <Card key={imp.id} className="p-5 bg-[var(--surface-primary)] border border-[var(--border-default)] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase text-cyan-400 font-bold">{imp.section}</span>
+                      <span className="text-[10px] text-emerald-400 font-mono font-semibold">+4 ATS Points</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      • Architected RESTful API backend handling 1,200 requests/sec with PostgreSQL connection pooling.
-                    </p>
-                  </div>
-                  <div className="space-y-1 pt-1">
-                    <div className="flex justify-between font-semibold text-slate-200">
-                      <span>Campus Placement Telemetry Model</span>
-                      <span className="font-mono text-slate-400">PyTorch, Python</span>
+
+                    <div className="space-y-2">
+                      <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/15 text-xs text-red-200">
+                        <span className="text-[9px] font-mono text-red-400 uppercase block font-bold mb-0.5">Original</span>
+                        {imp.original}
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/15 text-xs text-emerald-200">
+                        <span className="text-[9px] font-mono text-emerald-400 uppercase block font-bold mb-0.5">Optimized (Quantified)</span>
+                        {imp.improved}
+                      </div>
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      • Engineered recommendation model predicting student placement fit with 89% precision across 840 records.
+
+                    <p className="text-[11px] text-[var(--text-muted)] italic">
+                      Why: {imp.explanation}
                     </p>
-                  </div>
-                </div>
-              </div>
 
-              {/* Missing Keywords Injection Pill Box */}
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                    Missing Keywords Detected for SDE-1
-                  </span>
-                  <span className="text-[10px] text-slate-400">Add to bullet points</span>
-                </div>
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleRejectBullet(imp.id)}
+                      >
+                        Dismiss
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={<Check className="w-3.5 h-3.5" />}
+                        onClick={() => handleAcceptBullet(imp.id)}
+                      >
+                        Accept Improvement
+                      </Button>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
 
+            {/* Right: Missing Keywords & Extracted Skills (5 cols) */}
+            <div className="lg:col-span-5 space-y-6">
+              <Card className="p-5 bg-[var(--surface-primary)] border border-[var(--border-default)] space-y-3">
+                <h3 className="text-sm font-bold text-white">Missing Target Keywords</h3>
+                <p className="text-xs text-[var(--text-muted)]">High-frequency terms recruiters look for:</p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {resumeData.missingKeywords.length > 0 ? (
+                    resumeData.missingKeywords.map((kw, i) => (
+                      <Badge key={i} variant="momentum" className="text-[10px]">
+                        + {kw}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-xs text-emerald-400 font-mono">No critical keywords missing!</span>
+                  )}
+                </div>
+              </Card>
+
+              <Card className="p-5 bg-[var(--surface-primary)] border border-[var(--border-default)] space-y-3">
+                <h3 className="text-sm font-bold text-white">Parsed Technical Competencies</h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {resumeData.missingKeywords.map((kw) => (
-                    <span
-                      key={kw}
-                      className="px-2.5 py-1 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs font-mono"
-                    >
-                      + {kw}
-                    </span>
+                  {resumeData.parsedSkills.map((sk, i) => (
+                    <Badge key={i} variant="neutral" className="text-[10px]">
+                      {sk}
+                    </Badge>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Right: ATS Score & AI Suggestions (6 cols) */}
-            <div className="lg:col-span-6 space-y-6">
-              {/* ATS Score Overview Card */}
-              <div className="p-6 rounded-2xl bg-[#111722] border border-[#202938] space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">ATS Score</span>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="text-4xl font-black font-mono text-cyan-400">
-                        {resumeData.atsScore}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-400">/ 100</span>
-                    </div>
-                  </div>
-
-                  <span className="text-xs font-semibold px-3 py-1 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/40">
-                    {resumeData.atsScore >= 80 ? 'ATS Highly Qualified' : 'Optimization Recommended'}
-                  </span>
-                </div>
-
-                {/* Section Scores */}
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="p-3 rounded-xl bg-[#0d111a] border border-[#202938]">
-                    <span className="text-[10px] text-slate-400 block">Keyword Match</span>
-                    <span className="text-lg font-bold font-mono text-cyan-400">{resumeData.scores.keywordMatch}%</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#0d111a] border border-[#202938]">
-                    <span className="text-[10px] text-slate-400 block">Impact Statements</span>
-                    <span className="text-lg font-bold font-mono text-purple-400">{resumeData.scores.impactStatements}%</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#0d111a] border border-[#202938]">
-                    <span className="text-[10px] text-slate-400 block">Formatting & Syntax</span>
-                    <span className="text-lg font-bold font-mono text-emerald-400">{resumeData.scores.formatting}%</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#0d111a] border border-[#202938]">
-                    <span className="text-[10px] text-slate-400 block">Role Alignment</span>
-                    <span className="text-lg font-bold font-mono text-blue-400">{resumeData.scores.roleAlignment}%</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Suggested Bullet Improvements with Accept & Apply */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-cyan-400" />
-                    AI Quantified Bullet Rewrites
-                  </h3>
-                  <span className="text-[11px] text-cyan-400 font-semibold">
-                    {resumeData.suggestedImprovements.length} available
-                  </span>
-                </div>
-
-                {resumeData.suggestedImprovements.length === 0 ? (
-                  <div className="p-6 rounded-xl bg-[#111722] border border-emerald-500/40 text-center space-y-2">
-                    <Check className="w-6 h-6 text-emerald-400 mx-auto" />
-                    <h4 className="font-bold text-white text-sm">All Bullet Improvements Applied!</h4>
-                    <p className="text-xs text-slate-400">
-                      Your resume now features quantified metrics and high-priority SDE-1 keywords.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {resumeData.suggestedImprovements.map((imp) => (
-                      <div
-                        key={imp.id}
-                        className="p-4 rounded-xl bg-[#111722] border border-[#202938] space-y-3 hover:border-cyan-500/40 transition-all"
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-cyan-400">{imp.section}</span>
-                          <span className="text-[10px] text-slate-500">{imp.explanation}</span>
-                        </div>
-
-                        {/* Before */}
-                        <div className="p-2.5 rounded-lg bg-rose-950/20 border border-rose-500/20 text-xs">
-                          <span className="text-[10px] uppercase font-bold text-rose-400 block mb-1">Current Bullet:</span>
-                          <p className="text-slate-300 italic">&quot;{imp.original}&quot;</p>
-                        </div>
-
-                        {/* After */}
-                        <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-xs">
-                          <span className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">AI Optimized Rewrite:</span>
-                          <p className="text-emerald-200 font-medium">&quot;{imp.improved}&quot;</p>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex items-center justify-end gap-2 pt-1">
-                          <button
-                            onClick={() => copyToClipboard(imp.improved, imp.id)}
-                            className="px-3 py-1.5 rounded-lg bg-[#161e2e] hover:bg-[#202938] text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <Copy className="w-3 h-3" />
-                            <span>{copiedId === imp.id ? 'Copied!' : 'Copy'}</span>
-                          </button>
-
-                          <button
-                            onClick={() => updateResumeBullet(imp.id, true)}
-                            className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm shadow-cyan-600/30 cursor-pointer"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Apply & Boost Score (+4 pts)</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              </Card>
             </div>
           </div>
 
-          {/* Custom Resume Upload / Paste Modal */}
+          {/* Upload Resume Modal */}
           {showUploadModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-[#111722] border border-cyan-500/40 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl relative">
-                <div className="flex items-center justify-between pb-2 border-b border-[#202938]">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Upload className="w-4 h-4 text-cyan-400" />
-                    Paste or Ingest Custom Resume Text
-                  </h3>
+            <Modal
+              isOpen={showUploadModal}
+              onClose={() => setShowUploadModal(false)}
+              title="Upload & Parse Resume"
+              description="Upload your PDF or paste resume text for instant ATS scoring."
+            >
+              <form onSubmit={handleResumeFileUpload} className="space-y-4">
+                <div className="flex gap-2 p-1 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)]">
                   <button
-                    onClick={() => setShowUploadModal(false)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-white"
+                    type="button"
+                    onClick={() => setUploadMode('file')}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                      uploadMode === 'file' ? 'bg-cyan-500/20 text-cyan-300' : 'text-[var(--text-muted)]'
+                    }`}
                   >
-                    <X className="w-5 h-5" />
+                    File Upload (PDF/DOCX)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode('text')}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                      uploadMode === 'text' ? 'bg-cyan-500/20 text-cyan-300' : 'text-[var(--text-muted)]'
+                    }`}
+                  >
+                    Raw Text
                   </button>
                 </div>
 
-                <p className="text-xs text-slate-400">
-                  Paste resume text to trigger full AI skill extraction, ATS keyword matching, and live suitability recalculation.
-                </p>
-
-                <form onSubmit={handleCustomResumeUpload} className="space-y-4">
+                {uploadMode === 'file' ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-8 rounded-2xl border-2 border-dashed border-[var(--border-default)] hover:border-cyan-400/60 bg-[var(--surface-secondary)]/50 text-center cursor-pointer transition-colors"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.doc,.txt"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <FileUp className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-white">
+                      {selectedFile ? selectedFile.name : 'Click or drag resume file here'}
+                    </p>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">PDF, DOCX, or TXT up to 10MB</p>
+                  </div>
+                ) : (
                   <textarea
                     value={customResumeText}
                     onChange={(e) => setCustomResumeText(e.target.value)}
-                    rows={8}
-                    placeholder="Paste resume sections (Skills, Projects, Education, Work Experience)..."
-                    className="w-full p-3.5 bg-[#080b12] border border-[#202938] rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
-                    required
+                    placeholder="Paste resume markdown or plain text here..."
+                    rows={6}
+                    className="w-full p-3 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-default)] text-xs text-white placeholder-[var(--text-dim)] focus:outline-none focus:border-cyan-500"
                   />
+                )}
 
-                  <div className="flex items-center justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowUploadModal(false)}
-                      className="px-4 py-2 rounded-xl bg-[#161e2e] text-slate-300 text-xs font-semibold"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isUploading}
-                      className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-md shadow-cyan-600/30"
-                    >
-                      {isUploading ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Parsing & Benchmarking...</span>
-                        </>
-                      ) : (
-                        <span>Ingest & Recalculate</span>
-                      )}
-                    </button>
+                {uploadError && (
+                  <p className="text-xs text-rose-400">{uploadError}</p>
+                )}
+
+                {uploadPhase !== 'idle' && (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px] font-mono text-cyan-300">
+                      <span>{uploadPhase === 'parsing' ? 'AI Ingesting Skills...' : 'Uploading...'}</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <ProgressBar value={uploadProgress} variant="cyan" size="sm" />
                   </div>
-                </form>
-              </div>
-            </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    onClick={() => setShowUploadModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    type="submit"
+                    isLoading={uploadPhase === 'uploading' || uploadPhase === 'parsing'}
+                  >
+                    Analyze Resume
+                  </Button>
+                </div>
+              </form>
+            </Modal>
           )}
         </main>
       </div>

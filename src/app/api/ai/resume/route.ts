@@ -1,46 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callClaudeJson } from '@/lib/ai/claudeClient';
-import { checkRateLimit } from '@/lib/ai/rateLimit';
-import { ResumeData, TargetRole } from '@/types';
+import { callUniversalAIJson, AIAnalysisUnavailableError } from '@/lib/ai/universalAI';
+import {
+  checkResumeAnalysisRateLimit,
+  computeContentHash,
+  getCachedAnalysis,
+  setCachedAnalysis,
+} from '@/lib/ai/rateLimit';
+import { ResumeData, TargetRole, ExtractedSkill } from '@/types';
 
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'anon';
-    const rateCheck = checkRateLimit(`ai-resume-${ip}`, 25);
-    if (!rateCheck.success) {
-      return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
-    }
-    const body = await req.json();
-    const { action, resumeText, targetRole } = body;
+    const { getAIAuthContext } = await import('@/lib/ai/aiAuth');
+    const auth = await getAIAuthContext();
 
+    if (!auth.isAuthenticated && !auth.isDemo) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required.' },
+        { status: 401 }
+      );
+    }
+
+    const userIdOrIp = auth.userId || ip;
+
+    // Apply per-user rate limit
+    const rateCheck = checkResumeAnalysisRateLimit(userIdOrIp);
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        {
+          error: 'rate_limited',
+          message: rateCheck.message || 'Rate limit reached. Please wait before uploading again.',
+          reset: rateCheck.reset,
+          remaining: 0,
+        },
+        { status: 429 }
+      );
+    }
+
+    const body = await req.json();
+    const { action, resumeText, targetRole, fileName } = body as {
+      action?: 'extractSkills' | 'analyzeResume';
+      resumeText?: string;
+      targetRole?: TargetRole;
+      fileName?: string;
+    };
+
+    const textToAnalyze = (resumeText || '').trim();
+    if (!textToAnalyze || textToAnalyze.length < 20) {
+      return NextResponse.json(
+        { error: 'Insufficient text provided for resume analysis (minimum 20 characters required).' },
+        { status: 400 }
+      );
+    }
+
+    // 1. Action: extractSkills
     if (action === 'extractSkills') {
-      const fallback = () => {
-        const knownKeywords = [
-          'Python', 'Java', 'C++', 'JavaScript', 'TypeScript', 'SQL', 'PostgreSQL', 'MySQL',
-          'Data Structures', 'Algorithms', 'FastAPI', 'React', 'Node.js', 'Docker', 'Kubernetes',
-          'Git', 'System Design', 'REST APIs', 'Pandas', 'NumPy', 'PyTorch', 'Machine Learning',
-          'Operating Systems', 'OOP', 'Object-Oriented Design', 'Redis', 'Kafka', 'AWS'
-        ];
-        const lower = (resumeText || '').toLowerCase();
-        return knownKeywords.filter(kw => lower.includes(kw.toLowerCase()));
-      };
+      const cacheHash = computeContentHash(textToAnalyze, 'extractSkills');
+      const cached = getCachedAnalysis<ExtractedSkill[]>(cacheHash);
+      if (cached) {
+        return NextResponse.json({ skills: cached, cached: true });
+      }
 
       const systemPrompt = `You are CareerOS AI Skill Extraction Engine.
-Analyze the student resume text and extract all technical skills, programming languages, databases, frameworks, developer tools, and computer science fundamentals.
-Return ONLY a JSON array of strings, for example: ["Python", "SQL", "Data Structures", "Docker"].`;
+Analyze the candidate's resume text and extract all genuine technical competencies, programming languages, databases, cloud platforms, developer tools, libraries, frameworks, and computer science fundamentals.
+For each skill, determine:
+- "name": Standard canonical skill name (e.g. "React", "PostgreSQL", "Python", "Docker", "FastAPI")
+- "confidence": Float between 0.1 and 1.0 reflecting how clearly the skill is demonstrated with context/projects (e.g. 0.95 if used in a production project, 0.70 if only listed in a skills list)
+- "category": Categorize strictly into one of: "Programming", "Data", "Backend", "Frontend", "AI/ML", "CS Fundamentals", "Cloud/DevOps"
 
-      const userPrompt = `Resume Content:\n${resumeText || 'Python SQL Data Structures Git REST APIs FastAPI Pandas Docker'}`;
+Return ONLY a JSON array adhering to this schema:
+[
+  {
+    "name": "Python",
+    "confidence": 0.95,
+    "category": "Programming"
+  }
+]`;
 
-      const skills = await callClaudeJson<string[]>({
+      const userPrompt = `Candidate Resume Content:\n\n${textToAnalyze}`;
+
+      const extractedSkills = await callUniversalAIJson<ExtractedSkill[]>({
         systemPrompt,
         userPrompt,
-        fallback
+        temperature: 0.1,
       });
 
-      return NextResponse.json({ skills });
+      setCachedAnalysis(cacheHash, extractedSkills);
+      return NextResponse.json({ skills: extractedSkills });
     }
 
-    // Default: analyzeResume
+    // 2. Action: analyzeResume (Default)
     const role: TargetRole = targetRole || {
       id: 'role-sde-1',
       title: 'Software Engineer — SDE-1',
@@ -48,97 +97,103 @@ Return ONLY a JSON array of strings, for example: ["Python", "SQL", "Data Struct
       description: 'Backend microservices, clean code, scalable systems',
       salaryRange: '₹12 LPA — ₹24 LPA',
       marketDemand: 'Very High',
-      experienceLevel: 'Entry Level',
+      experienceLevel: 'Entry Level (0-2 yrs)',
       educationExpectations: 'B.Tech CSE/IT',
       experienceExpectations: 'Projects in REST APIs & databases',
-      softSkills: [],
-      interviewAreas: [],
-      aptitudeAreas: [],
-      communicationExpectations: '',
+      softSkills: ['Problem Solving', 'Team Collaboration'],
+      interviewAreas: ['DSA', 'System Design'],
+      aptitudeAreas: ['Quantitative', 'Logical'],
+      communicationExpectations: 'Clear technical articulation',
       requiredSkills: [
-        { name: 'Python', category: 'Programming', requiredProficiency: 85, weight: 1, critical: true, benchmarkDescription: '' },
-        { name: 'Data Structures', category: 'Programming', requiredProficiency: 85, weight: 1, critical: true, benchmarkDescription: '' },
-        { name: 'SQL', category: 'Data', requiredProficiency: 80, weight: 0.9, critical: true, benchmarkDescription: '' },
-        { name: 'System Design', category: 'Backend', requiredProficiency: 70, weight: 0.8, critical: true, benchmarkDescription: '' }
-      ]
+        { name: 'Python', category: 'Programming', requiredProficiency: 85, weight: 1, critical: true },
+        { name: 'Data Structures', category: 'Programming', requiredProficiency: 85, weight: 1, critical: true },
+        { name: 'SQL', category: 'Data', requiredProficiency: 80, weight: 0.9, critical: true },
+        { name: 'System Design', category: 'Backend', requiredProficiency: 70, weight: 0.8, critical: true },
+        { name: 'Docker', category: 'Backend', requiredProficiency: 65, weight: 0.7, critical: false },
+      ],
     };
 
-    const fallback = (): ResumeData => {
-      return {
-        fileName: 'Jasmanjot_Singh_Resume_2026.pdf',
-        uploadedAt: new Date().toISOString(),
-        atsScore: 78,
-        scores: {
-          keywordMatch: 76,
-          impactStatements: 72,
-          formatting: 88,
-          roleAlignment: 79,
-        },
-        parsedSkills: ['Python', 'SQL', 'Data Structures', 'Git', 'REST APIs', 'FastAPI'],
-        extractedProjects: [
-          {
-            title: 'Order Processing Microservice',
-            description: 'Engineered high-throughput RESTful API backend handling 1,200 req/sec with PostgreSQL connection pooling.',
-            technologies: ['FastAPI', 'PostgreSQL', 'Docker', 'Redis']
-          }
-        ],
-        missingKeywords: ['System Design', 'SQL Indexing', 'Kafka'],
-        suggestedImprovements: [
-          {
-            id: 'imp-1',
-            section: 'Projects: Order Processing',
-            original: 'Built a backend service in Python and PostgreSQL for order processing.',
-            improved: 'Architected high-throughput REST API using FastAPI and PostgreSQL with indexing, reducing order processing latency by 38% under 1,500 concurrent requests.',
-            explanation: 'Replaced passive phrasing with quantified business impact and specific concurrency metrics.',
-            applied: false
-          }
-        ],
-        summaryFeedback: `Resume aligns well with ${role.title} requirements. Quantifying engineering impact statements and incorporating missing keywords will raise ATS score above 85%.`
-      };
-    };
+    // Check content hash cache to avoid charging/calling LLM on identical re-runs
+    const analysisHash = computeContentHash(textToAnalyze, `analyzeResume::${role.id}`);
+    const cachedAnalysis = getCachedAnalysis<ResumeData>(analysisHash);
+    if (cachedAnalysis) {
+      return NextResponse.json({ ...cachedAnalysis, cached: true });
+    }
 
-    const systemPrompt = `You are CareerOS ATS Resume Parser & Optimization Engine.
-You evaluate resumes against target job roles.
-Your output must conform EXACTLY to this TypeScript interface:
-interface ResumeData {
-  fileName: string;
-  uploadedAt: string;
-  atsScore: number; // 0 to 100
-  scores: {
-    keywordMatch: number; // 0 to 100
-    impactStatements: number; // 0 to 100
-    formatting: number; // 0 to 100
-    roleAlignment: number; // 0 to 100
-  };
-  parsedSkills: string[];
-  extractedProjects: Array<{
-    title: string;
-    description: string;
-    technologies: string[];
-  }>;
-  missingKeywords: string[];
-  suggestedImprovements: Array<{
-    id: string;
-    section: string;
-    original: string;
-    improved: string;
-    explanation: string;
-    applied: boolean;
-  }>;
-  summaryFeedback: string;
+    const resolvedFileName = fileName || 'Uploaded_Resume.pdf';
+    const requiredSkillNames = role.requiredSkills.map((s) => s.name);
+
+    const systemPrompt = `You are CareerOS ATS Resume Analysis & Placement Optimization Engine.
+You evaluate the candidate's actual resume against the target role: "${role.title}" (${role.category}).
+You must judge the ACTUAL provided text. Do NOT invent fake projects or generic placeholder data.
+
+Target Role Core Competencies to check:
+${requiredSkillNames.join(', ')}
+
+Return ONLY valid JSON strictly matching this schema:
+{
+  "fileName": "${resolvedFileName}",
+  "uploadedAt": "${new Date().toISOString()}",
+  "atsScore": number, // 0 to 100 overall composite score
+  "scores": {
+    "keywordMatch": number, // 0 to 100 based on presence of target competencies
+    "impactStatements": number, // 0 to 100 based on quantifiable metrics, numbers, percentages, business impact
+    "formatting": number, // 0 to 100 based on structure, readability, sectioning
+    "roleAlignment": number // 0 to 100 based on fit for ${role.title}
+  },
+  "parsedSkills": string[], // All genuine skills found in the candidate's text
+  "extractedProjects": [ // Extract 1-3 ACTUAL projects described in the resume
+    {
+      "title": string,
+      "description": string,
+      "technologies": string[]
+    }
+  ],
+  "missingKeywords": string[], // Skills required by ${role.title} that this resume lacks
+  "suggestedImprovements": [ // 2-3 specific improvements that take ACTUAL sentences from the resume and rewrite them with quantified impact and clarity
+    {
+      "id": "imp-1",
+      "section": string,
+      "original": string, // Exact or near-exact sentence from the user's resume
+      "improved": string, // Action-oriented, quantified rewrite
+      "explanation": string, // Why this rewrite scores higher with technical recruiters
+      "applied": false
+    }
+  ],
+  "summaryFeedback": string // 2-3 sentences evaluating the candidate's specific profile and primary steps to reach 85%+ ATS fit
 }`;
 
-    const userPrompt = `Target Role: ${role.title} (${role.category})\nRequired Skills: ${role.requiredSkills.map(s => s.name).join(', ')}\n\nResume Text:\n${resumeText || 'Python SQL Data Structures Git REST APIs FastAPI'}`;
+    const userPrompt = `Target Role: ${role.title}
+Required Competencies: ${requiredSkillNames.join(', ')}
 
-    const resumeData = await callClaudeJson<ResumeData>({
+Candidate Resume Text:
+${textToAnalyze}`;
+
+    const resumeData = await callUniversalAIJson<ResumeData>({
       systemPrompt,
       userPrompt,
-      fallback
+      temperature: 0.15,
     });
 
+    // Ensure metadata consistency
+    resumeData.fileName = resolvedFileName;
+    resumeData.uploadedAt = new Date().toISOString();
+
+    setCachedAnalysis(analysisHash, resumeData);
     return NextResponse.json(resumeData);
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Resume processing error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[API /api/ai/resume Error]:', e);
+    if (e instanceof AIAnalysisUnavailableError) {
+      return NextResponse.json(
+        {
+          error: 'analysis_unavailable',
+          message: e.message,
+          retryable: true,
+        },
+        { status: 503 }
+      );
+    }
+    const message = e instanceof Error ? e.message : 'Internal resume analysis error';
+    return NextResponse.json({ error: message, retryable: true }, { status: 500 });
   }
 }

@@ -10,6 +10,15 @@ export async function POST(req: NextRequest) {
     if (!rateCheck.success) {
       return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
     }
+
+    const { getAIAuthContext } = await import('@/lib/ai/aiAuth');
+    const auth = await getAIAuthContext();
+    if (!auth.isAuthenticated && !auth.isDemo) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
+    if (auth.role !== 'faculty') {
+      return NextResponse.json({ error: 'Forbidden: Faculty credentials required.' }, { status: 403 });
+    }
     const body = await req.json();
     const { student, cohortKPIs } = body as {
       student: FacultyStudentSummary;

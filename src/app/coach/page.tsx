@@ -11,14 +11,18 @@ import {
   Code2, 
   FileText, 
   Mic,
-  Bot
+  Bot,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
 import { TopNav } from '@/components/navigation/TopNav';
 import { StudentSidebar } from '@/components/navigation/StudentSidebar';
 import { AIOrb } from '@/components/ui/AIOrb';
-import { GlowCard } from '@/components/ui/GlowCard';
-import { CareerButton } from '@/components/ui/CareerButton';
+import { AIStreamingVisualizer } from '@/components/ai/AIStreamingVisualizer';
+import { Card, GlowCard } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { soundFX } from '@/components/effects/SoundFX';
 
 export default function CoachPage() {
@@ -34,9 +38,9 @@ export default function CoachPage() {
   const [isThinking, setIsThinking] = useState(false);
 
   const quickActions = [
-    { label: 'Diagnose SQL Joins', prompt: 'Why is my SQL Joins proficiency holding back my readiness score?' },
-    { label: 'Evaluate Resume Gaps', prompt: 'What 3 bullet points should I rewrite in my resume for SDE-1?' },
-    { label: 'Simulate System Design', prompt: 'Give me a 2-minute explanation checklist for caching with Redis.' },
+    { label: 'Diagnose SQL Joins Deficit', prompt: 'Why is my SQL Joins proficiency holding back my readiness score?' },
+    { label: 'Evaluate Resume ATS Alignment', prompt: 'What 3 bullet points should I rewrite in my resume for SDE-1?' },
+    { label: 'System Design Checklist', prompt: 'Give me a 2-minute explanation checklist for caching with Redis.' },
     { label: 'STAR Framework Check', prompt: 'Review my situational framing for difficult team deadlines.' }
   ];
 
@@ -52,11 +56,11 @@ export default function CoachPage() {
     setTimeout(() => {
       setIsThinking(false);
       soundFX.playSuccess();
-    }, 1200);
+    }, 1100);
   };
 
   return (
-    <div className="min-h-screen bg-[#070A0F] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
@@ -64,130 +68,139 @@ export default function CoachPage() {
 
         <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/[0.06]">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-mono mb-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-mono mb-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                <span>INTELLIGENCE CONSOLE</span>
+                <span>INTELLIGENCE STRATEGIST CONSOLE</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 AI Career Strategist
               </h1>
-              <p className="text-sm text-slate-400 mt-2">
-                Context-aware coaching calibrated to your continuous readiness telemetry.
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
+                Context-aware strategic coaching calibrated to your continuous readiness telemetry.
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-mono px-3 py-1 rounded-full bg-slate-900 border border-white/[0.08] text-slate-300">
-                Connected to: {activeTargetRole.title}
-              </span>
-            </div>
+            <Badge variant="cyan">
+              Connected: {activeTargetRole.title} ({readinessScores.overall}% Ready)
+            </Badge>
           </div>
 
-          {/* 1. CENTRAL AI ORB CONSOLE & PROACTIVE RECOMMENDATION */}
-          <GlowCard className="p-8 bg-gradient-to-b from-slate-900 to-[#0B0F16] border border-cyan-500/30">
+          {/* Central AI Orb Console & Proactive Recommendation */}
+          <GlowCard glowColor="cyan" className="p-6 sm:p-8 bg-gradient-to-b from-[var(--surface-primary)] to-[var(--surface-secondary)] border border-cyan-500/30">
             <div className="flex flex-col md:flex-row items-center gap-8">
               <AIOrb 
-                size={110} 
+                size={100} 
                 state={isThinking ? 'thinking' : 'idle'} 
                 readinessTrend={readinessScores.weeklyDelta} 
               />
 
-              <div className="flex-1 text-center md:text-left space-y-3">
-                <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest font-bold">
+              <div className="flex-1 text-center md:text-left space-y-2">
+                <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest font-bold">
                   Proactive Trajectory Recommendation
                 </span>
-                <h3 className="text-lg sm:text-xl font-bold text-white font-mono leading-snug">
-                  &quot;Jasmanjot, spend 35 minutes mastering B-Tree SQL indexing today to convert your 78% readiness into placement-ready 84%.&quot;
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Focus on Week 1 SQL & Database Milestones
                 </h3>
-
-                <div className="flex flex-wrap gap-3 pt-2 justify-center md:justify-start">
-                  <Link href="/roadmap">
-                    <CareerButton variant="momentum" size="sm" rightIcon={<Zap className="w-3.5 h-3.5" />}>
-                      Practice SQL Drill
-                    </CareerButton>
-                  </Link>
-                  <Link href="/skills">
-                    <CareerButton variant="secondary" size="sm">
-                      Inspect Skill Gap
-                    </CareerButton>
-                  </Link>
-                  <Link href="/interviews/technical">
-                    <CareerButton variant="ghost" size="sm" rightIcon={<Code2 className="w-3.5 h-3.5" />}>
-                      Start Technical Mock
-                    </CareerButton>
-                  </Link>
-                </div>
+                <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                  Completing your database optimization drill will raise your technical score by +4% and push your overall readiness past the 75% placement gateway.
+                </p>
               </div>
             </div>
           </GlowCard>
 
-          {/* 2. QUICK CONTEXT CHIPS */}
-          <div className="space-y-3">
-            <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">Suggested Diagnostic Queries</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {quickActions.map(action => (
+          {/* Quick Action Prompt Chips */}
+          <div className="space-y-2">
+            <span className="text-[10px] font-mono uppercase text-[var(--text-dim)] font-bold tracking-wider">
+              Diagnostic Prompts
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {quickActions.map((qa, idx) => (
                 <button
-                  key={action.label}
-                  onClick={() => handleSend(action.prompt)}
-                  className="p-3.5 rounded-xl bg-slate-900/80 border border-white/[0.08] hover:border-cyan-500/40 text-left transition-all cursor-pointer group"
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSend(qa.prompt)}
+                  className="p-3 rounded-xl bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] border border-[var(--border-subtle)] hover:border-cyan-500/40 text-left text-xs font-semibold text-white transition-all flex items-center justify-between group cursor-pointer"
                 >
-                  <span className="text-xs font-bold font-mono text-white group-hover:text-cyan-300 block mb-1">
-                    {action.label}
-                  </span>
-                  <p className="text-[11px] text-slate-400 line-clamp-2">
-                    {action.prompt}
-                  </p>
+                  <span>{qa.label}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-cyan-400 group-hover:translate-x-1 transition-transform" />
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 3. CONVERSATIONAL LOG */}
-          <GlowCard className="p-6 bg-[#0B0F16] border border-white/[0.08] flex flex-col min-h-[380px]">
-            <div className="flex-1 space-y-4 overflow-y-auto pr-2">
-              {aiChatMessages.map(msg => (
-                <div 
-                  key={msg.id}
-                  className={`p-4 rounded-2xl text-xs leading-relaxed max-w-2xl ${
-                    msg.sender === 'ai' 
-                      ? 'bg-slate-900/80 border border-cyan-500/20 text-slate-200' 
-                      : 'bg-cyan-950/20 border border-cyan-500/30 text-cyan-100 ml-auto'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1.5 text-[10px] font-mono text-slate-400">
-                    <span className={msg.sender === 'ai' ? 'text-cyan-400 font-bold' : 'text-slate-300 font-bold'}>
-                      {msg.sender === 'ai' ? 'CareerOS AI' : 'Jasmanjot'}
-                    </span>
-                    <span>•</span>
-                    <span>{msg.timestamp}</span>
+          {/* Chat Feed */}
+          <Card className="p-5 bg-[var(--surface-primary)] border border-[var(--border-default)] space-y-4">
+            <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              {aiChatMessages.map((msg) => {
+                const isAI = msg.sender === 'ai';
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${isAI ? 'items-start' : 'items-end'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] p-4 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                        isAI
+                          ? 'bg-[var(--surface-secondary)] border border-[var(--border-default)] text-[var(--text-primary)] rounded-tl-sm'
+                          : 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white rounded-tr-sm shadow-md'
+                      }`}
+                    >
+                      {msg.text}
+
+                      {msg.quickActions && (
+                        <div className="mt-3 pt-2 border-t border-[var(--border-subtle)] space-y-1">
+                          <p className="text-[10px] font-mono text-cyan-400 font-bold uppercase">Next Steps:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {msg.quickActions.map((qa, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => handleSend(qa)}
+                                className="text-[11px] px-2.5 py-1 rounded-lg bg-[var(--surface-tertiary)] hover:bg-cyan-500/20 text-cyan-200 border border-cyan-500/30 transition-colors text-left"
+                              >
+                                {qa}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="whitespace-pre-line">{msg.text}</p>
+                );
+              })}
+
+              {isThinking && (
+                <div className="py-2">
+                  <AIStreamingVisualizer
+                    label="CareerOS AI Coach is synthesizing your guidance..."
+                    sublabel="Evaluating code repository benchmarks and interview patterns"
+                  />
                 </div>
-              ))}
+              )}
             </div>
 
-            {/* Input Form */}
-            <form 
+            {/* Input form */}
+            <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="pt-4 mt-4 border-t border-white/[0.08] flex items-center gap-3"
+              className="flex items-center gap-2 pt-3 border-t border-[var(--border-subtle)]"
             >
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask CareerOS AI about interview prep, skill gaps, or placement strategy..."
-                className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-mono"
+                placeholder="Ask CareerOS AI Strategist anything..."
+                className="flex-1 px-4 py-2.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-default)] text-xs text-white placeholder-[var(--text-dim)] focus:outline-none focus:border-cyan-500"
               />
-              <CareerButton type="submit" variant="primary" size="md" rightIcon={<Send className="w-3.5 h-3.5" />}>
-                Consult AI
-              </CareerButton>
+              <Button type="submit" variant="primary" size="md" rightIcon={<Send className="w-4 h-4" />}>
+                Send
+              </Button>
             </form>
-          </GlowCard>
+          </Card>
         </main>
       </div>
     </div>

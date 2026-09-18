@@ -55,6 +55,23 @@ export class MockStudentRepository implements IStudentRepository {
       status
     };
   }
+
+  async upsertStudentSkill(studentId: string, skill: { name: string; category?: string; proficiency: number; verified?: boolean }): Promise<void> {
+    const existing = this.profile.skills.find(s => s.name === skill.name);
+    if (existing) {
+      existing.currentProficiency = skill.proficiency;
+      if (skill.verified !== undefined) existing.verified = skill.verified;
+    } else {
+      this.profile.skills.push({
+        id: `sk-${Date.now()}`,
+        name: skill.name,
+        category: (skill.category as any) || 'Programming',
+        currentProficiency: skill.proficiency,
+        verified: skill.verified ?? false,
+        lastAssessed: new Date().toISOString()
+      });
+    }
+  }
 }
 
 export class MockTargetRoleRepository implements ITargetRoleRepository {

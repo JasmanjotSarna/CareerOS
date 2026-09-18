@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callClaudeJson } from '@/lib/ai/claudeClient';
+import { callUniversalAIJson } from '@/lib/ai/universalAI';
 import { checkRateLimit } from '@/lib/ai/rateLimit';
 import { TurnEvaluationResult } from '@/lib/interview/types';
 
@@ -11,9 +11,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
     }
 
+    const { getAIAuthContext } = await import('@/lib/ai/aiAuth');
+    const auth = await getAIAuthContext();
+    if (!auth.isAuthenticated && !auth.isDemo) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { 
-      interviewType, 
+      interviewId,
+      interviewType = 'technical', 
       targetRole, 
       currentTopic, 
       currentDifficulty, 
@@ -21,6 +28,26 @@ export async function POST(req: NextRequest) {
       history, 
       turnCount 
     } = body;
+
+    // Strict server-side consent enforcement
+    const { verifyInterviewConsent } = await import('@/lib/ai/consentService');
+    const consentCheck = await verifyInterviewConsent({
+      userId: auth.userId,
+      interviewId,
+      interviewType: (interviewType as 'technical' | 'hr') || 'technical',
+      requireRecording: false,
+    });
+
+    if (!consentCheck.valid) {
+      return NextResponse.json(
+        {
+          error: 'consent_required',
+          code: consentCheck.code,
+          message: consentCheck.message || 'Active interview consent is required to process responses.',
+        },
+        { status: 403 }
+      );
+    }
 
     const turnsCompleted = Number(turnCount) || 0;
     const isWrapUp = turnsCompleted >= 4; // Wrap up after 4-5 thorough adaptive turns
@@ -133,13 +160,11 @@ Return ONLY a JSON object matching this TypeScript contract:
 
     const userPrompt = `Recent Conversation:\n${prunedHistory}\n\nCandidate's Latest Answer:\n"${candidateAnswer}"\n\nIs Final Turn (Wrap up?): ${isWrapUp}`;
 
-    const result = await callClaudeJson<TurnEvaluationResult>({
+    const result = await callUniversalAIJson<TurnEvaluationResult>({
       systemPrompt,
       userPrompt,
-      fallback,
-      maxTokens: 500,
-      temperature: 0.3
-    });
+      temperature: 0.25,
+    }).catch(() => fallback());
 
     return NextResponse.json(result);
   } catch (err: unknown) {

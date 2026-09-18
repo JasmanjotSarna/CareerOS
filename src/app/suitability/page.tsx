@@ -7,57 +7,64 @@ import {
   AlertTriangle, 
   ArrowRight, 
   Briefcase, 
-  Bot,
-  Layers,
-  ChevronRight
+  Bot, 
+  Layers, 
+  ChevronRight,
+  TrendingUp,
+  Target,
+  Sparkles,
+  Award
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
 import { TopNav } from '@/components/navigation/TopNav';
 import { StudentSidebar } from '@/components/navigation/StudentSidebar';
+import { Card, GlowCard } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { ProgressRing, ProgressBar } from '@/components/ui/ProgressRing';
 import { soundFX } from '@/components/effects/SoundFX';
 
 export default function SuitabilityPage() {
   const { activeTargetRole, targetRoles, setTargetRole, suitability } = useApp();
 
   const facetList = [
-    { label: 'Technical Skills Proficiency', score: suitability.breakdown.skills, weight: '45% weight' },
-    { label: 'Project Depth & Complexity', score: suitability.breakdown.projects, weight: '20% weight' },
-    { label: 'Education & Academic Alignment', score: suitability.breakdown.education, weight: '15% weight' },
-    { label: 'Internship & Practical Experience', score: suitability.breakdown.experience, weight: '10% weight' },
-    { label: 'ATS Resume Keyword Matching', score: suitability.breakdown.resume, weight: '10% weight' },
+    { label: 'Technical Skills Proficiency', score: suitability.breakdown.skills, weight: '40% weight', desc: 'Evaluated against required core languages, frameworks, and data stores.' },
+    { label: 'Project Depth & Complexity', score: suitability.breakdown.projects, weight: '25% weight', desc: 'Assessed from full-stack architectural scale, production deployments, and testing.' },
+    { label: 'CS Fundamentals & Academics', score: suitability.breakdown.education, weight: '15% weight', desc: 'OS, DBMS, Computer Networks, and System Design foundations.' },
+    { label: 'ATS Resume Keyword Matching', score: suitability.breakdown.resume, weight: '10% weight', desc: 'Target role keyword vector match and quantified impact metrics.' },
+    { label: 'Practical / Internship Experience', score: suitability.breakdown.experience, weight: '10% weight', desc: 'Real-world software engineering collaboration and delivery history.' },
   ];
 
   return (
-    <div className="min-h-screen bg-[#080b12] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
         <StudentSidebar />
 
-        <main className="flex-1 p-5 sm:p-7 space-y-6 overflow-y-auto">
-          {/* Header with Evaluated Role Selector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#1e293b]/60">
+        <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--border-subtle)]">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
-                  Market Fit Diagnostics
-                </span>
-                <span className="text-slate-600">•</span>
-                <span className="text-xs text-slate-400">Deterministic Vector Matching</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-mono mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                <span>DETERMINISTIC FIT DIAGNOSTICS</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Role Suitability Analysis
+                Role Suitability Vector
               </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
                 Continuous AI benchmarking of your verified competencies against industry hiring rubrics.
               </p>
             </div>
 
             {/* Target Role Selector */}
-            <div className="flex items-center gap-2 bg-[#111724] border border-[#1e293b] px-3 py-1.5 rounded-lg text-xs">
-              <Briefcase className="w-3.5 h-3.5 text-cyan-400" />
+            <div className="flex items-center gap-2.5 p-2 rounded-xl bg-[var(--surface-primary)] border border-[var(--border-default)] text-xs">
+              <Briefcase className="w-4 h-4 text-cyan-400" />
               <div>
-                <span className="text-[9px] uppercase font-bold text-slate-500 block font-mono">Benchmark Role</span>
+                <span className="text-[9px] uppercase font-bold text-[var(--text-dim)] block font-mono">
+                  Benchmark Target
+                </span>
                 <select
                   value={activeTargetRole.id}
                   onChange={(e) => {
@@ -66,8 +73,8 @@ export default function SuitabilityPage() {
                   }}
                   className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer"
                 >
-                  {targetRoles.map(r => (
-                    <option key={r.id} value={r.id} className="bg-[#111724] text-white">
+                  {targetRoles.map((r) => (
+                    <option key={r.id} value={r.id} className="bg-[var(--surface-primary)] text-white">
                       {r.title}
                     </option>
                   ))}
@@ -76,151 +83,77 @@ export default function SuitabilityPage() {
             </div>
           </div>
 
-          {/* Top Banner: SDE-1 78% Match & 5-Vector Breakdown */}
-          <div className="p-6 rounded-xl bg-[#111724] border border-[#1e293b] relative overflow-hidden">
+          {/* Top Banner: Overall Match & Summary */}
+          <GlowCard glowColor="cyan" className="p-6 sm:p-8 bg-[var(--surface-primary)] border border-[var(--border-default)]">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-              
-              {/* Left Column: Overall Match Card */}
-              <div className="md:col-span-4 text-center md:text-left space-y-2 border-b md:border-b-0 md:border-r border-[#1e293b] pb-6 md:pb-0 md:pr-6">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-mono">
+              {/* Match Dial & Status */}
+              <div className="md:col-span-5 flex flex-col items-center md:items-start text-center md:text-left space-y-3 md:border-r border-[var(--border-subtle)] md:pr-8">
+                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider font-bold">
                   Overall Vector Match
                 </span>
-                <div className="text-5xl sm:text-6xl font-black font-mono text-cyan-400">
-                  {suitability.overallMatch}%
+                <div className="flex items-center gap-4">
+                  <ProgressRing value={suitability.overallMatch} size={84} strokeWidth={7} variant="cyan" />
+                  <div>
+                    <h3 className="text-xl font-bold text-white">{activeTargetRole.title}</h3>
+                    <Badge variant="cyan" className="mt-1">
+                      {suitability.overallMatch >= 70 ? 'High Fit Candidate' : 'Developing Fit'}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-300">
-                  Target: <strong className="text-white font-semibold">{activeTargetRole.title}</strong>
-                </div>
-                <div>
-                  <span className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
-                    Strong Placement Contender
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 pt-1">
-                  Salary benchmark: <span className="font-mono text-slate-300">{activeTargetRole.salaryRange}</span>
+                <p className="text-xs text-[var(--text-muted)] pt-1">
+                  Salary market benchmark: <strong className="text-white font-mono">{activeTargetRole.salaryRange}</strong>
                 </p>
               </div>
 
-              {/* Right Column: 5 Alignment Vectors */}
-              <div className="md:col-span-8 space-y-3">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono mb-2">
-                  <span>Evaluation Vector</span>
-                  <span>Benchmark Match</span>
+              {/* Strategic AI Verdict */}
+              <div className="md:col-span-7 space-y-3">
+                <div className="flex items-center gap-2 text-cyan-300 text-xs font-mono font-bold">
+                  <Bot className="w-4 h-4" />
+                  <span>AI SUITABILITY VERDICT</span>
                 </div>
-                {facetList.map((facet) => (
-                  <div key={facet.label} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-300 font-medium">
-                        {facet.label} <span className="text-[10px] text-slate-500 font-mono">({facet.weight})</span>
-                      </span>
-                      <span className="font-mono font-bold text-cyan-400">{facet.score}%</span>
+                <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                  {suitability.aiSummary ||
+                    `Your current skill matrix is well-aligned with ${activeTargetRole.title}. Closing the high-priority deficits in SQL database optimization and system design will elevate your readiness above the 85th percentile.`}
+                </p>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Link href="/skills">
+                    <Button variant="secondary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                      Explore Skill Gaps
+                    </Button>
+                  </Link>
+                  <Link href="/roadmap">
+                    <Button variant="primary" size="sm" rightIcon={<ChevronRight className="w-3.5 h-3.5" />}>
+                      View Sprint Roadmap
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* 5-Vector Breakdown List */}
+          <div className="space-y-4">
+            <h3 className="text-base font-bold text-white">Dimension Breakdown</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {facetList.map((facet, idx) => (
+                <Card key={idx} className="p-5 bg-[var(--surface-primary)] border border-[var(--border-default)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-white">{facet.label}</h4>
+                      <span className="text-[10px] font-mono text-[var(--text-muted)]">{facet.weight}</span>
                     </div>
-                    <div className="h-1.5 w-full bg-[#161f30] rounded-full overflow-hidden border border-[#1e293b]">
-                      <div
-                        className="h-full bg-gradient-to-r from-cyan-500 to-violet-500 rounded-full transition-all duration-700"
-                        style={{ width: `${facet.score}%` }}
-                      />
-                    </div>
+                    <span className="text-base font-mono font-bold text-cyan-400">{facet.score}%</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          {/* AI Synthesized Match Explanation */}
-          <div className="p-5 rounded-xl bg-gradient-to-r from-[#0c1524] via-[#111724] to-[#120f26] border border-cyan-500/30 space-y-2">
-            <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4 text-cyan-400" />
-              <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400 font-mono">
-                CareerOS AI Match Intelligence
-              </span>
-            </div>
-            <p className="text-xs text-slate-200 leading-relaxed">
-              {suitability.aiSummary}
-            </p>
-            <div className="text-xs font-semibold text-emerald-300 pt-1 flex items-center gap-1.5">
-              <span>💡</span>
-              <span>{suitability.improvementTip}</span>
-            </div>
-          </div>
+                  <ProgressBar value={facet.score} variant="cyan" size="md" />
 
-          {/* Strong Matches vs Missing Skills Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            
-            {/* Strong Matches */}
-            <div className="p-5 rounded-xl bg-[#111724] border border-emerald-500/30 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-[#1e293b]">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <h3 className="font-bold text-white text-sm">Verified Strong Matches</h3>
-                </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40">
-                  {suitability.strongMatches.length} Core Skills Met
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                You satisfy or exceed the target hiring bar for these technical proficiencies:
-              </p>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {suitability.strongMatches.map((skill) => (
-                  <div
-                    key={skill}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs font-medium"
-                  >
-                    <span>✓</span>
-                    <span>{skill}</span>
-                  </div>
-                ))}
-              </div>
+                  <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                    {facet.desc}
+                  </p>
+                </Card>
+              ))}
             </div>
-
-            {/* Missing Skills / Deficits */}
-            <div className="p-5 rounded-xl bg-[#111724] border border-rose-500/30 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-[#1e293b]">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  <h3 className="font-bold text-white text-sm">Missing Skills & Deficits</h3>
-                </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-500/40">
-                  {suitability.missingSkills.length} Deficits Flagged
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Closing these qualification gaps will immediately unlock round 1 technical shortlisting:
-              </p>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {suitability.missingSkills.map((skill) => (
-                  <div
-                    key={skill}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-950/40 border border-rose-500/30 text-rose-200 text-xs font-medium"
-                  >
-                    <span>⚠</span>
-                    <span>{skill}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Action Footer Callout */}
-          <div className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl bg-[#111724] border border-[#1e293b] gap-4">
-            <div>
-              <h4 className="text-xs font-bold text-white">Ready to close these skill gaps?</h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                CareerOS has auto-generated a targeted 4-week roadmap based on this suitability analysis.
-              </p>
-            </div>
-            <Link
-              href="/roadmap"
-              onMouseEnter={() => soundFX.playHover()}
-              onClick={() => soundFX.playClick()}
-              className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm"
-            >
-              <span>Open My AI Roadmap</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
         </main>
       </div>

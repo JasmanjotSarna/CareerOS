@@ -10,6 +10,12 @@ export async function POST(req: NextRequest) {
     if (!rateCheck.success) {
       return new Response('Rate limit reached. Please wait a moment.', { status: 429 });
     }
+
+    const { getAIAuthContext } = await import('@/lib/ai/aiAuth');
+    const auth = await getAIAuthContext();
+    if (!auth.isAuthenticated && !auth.isDemo) {
+      return new Response('Unauthorized: Session or demo access required.', { status: 401 });
+    }
     const body = await req.json();
     const { message, contextSnapshot } = body as {
       message: string;

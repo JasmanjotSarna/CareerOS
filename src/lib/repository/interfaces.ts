@@ -21,6 +21,7 @@ export interface IStudentRepository {
   updateProfile(studentId: string, updates: Partial<StudentProfile>): Promise<StudentProfile>;
   getRoadmapTasks(studentId: string): Promise<RoadmapTask[]>;
   updateTaskStatus(taskId: string, status: RoadmapTask['status']): Promise<RoadmapTask>;
+  upsertStudentSkill?(studentId: string, skill: { name: string; category?: string; proficiency: number; verified?: boolean }): Promise<void>;
 }
 
 export interface ITargetRoleRepository {

@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   Target,
@@ -16,157 +16,163 @@ import {
   Brain,
   TrendingUp,
   Bot,
-  User,
-  Settings,
+  ChevronRight,
   ShieldCheck,
-  ChevronRight
+  Flame
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
-import { cn } from '@/lib/utils';
+import { ProgressRing } from '@/components/ui/ProgressRing';
 import { soundFX } from '@/components/effects/SoundFX';
+import { cn } from '@/lib/utils';
 
 export const StudentSidebar: React.FC = () => {
   const pathname = usePathname();
-  const { readinessScores, activeTargetRole, studentProfile } = useApp();
+  const { 
+    readinessScores, 
+    activeTargetRole, 
+    studentProfile, 
+    suitability, 
+    roadmapWeeks, 
+    resumeData 
+  } = useApp();
 
-  const primaryNav = [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  const allTasks = useMemo(() => roadmapWeeks.flatMap(w => w.tasks), [roadmapWeeks]);
+  const completedTasks = useMemo(() => allTasks.filter(t => t.status === 'completed'), [allTasks]);
+  const roadmapProgress = allTasks.length > 0 ? Math.round((completedTasks.length / allTasks.length) * 100) : 0;
+
+  interface NavItem {
+    label: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string;
+    pulse?: boolean;
+  }
+
+  const navSections: Array<{ title: string; items: NavItem[] }> = [
+    {
+      title: 'CORE DIAGNOSTICS',
+      items: [
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { label: 'Role Suitability', href: '/suitability', icon: Target, badge: `${suitability.overallMatch}%` },
+        { label: 'Skill Gap Matrix', href: '/skills', icon: GitPullRequest },
+        { label: 'Sprint Roadmap', href: '/roadmap', icon: Map, badge: `${roadmapProgress}%` },
+        { label: 'ATS Resume Studio', href: '/resume', icon: FileCheck, badge: resumeData.atsScore > 0 ? `${resumeData.atsScore}` : 'New' },
+      ],
+    },
+    {
+      title: 'INTERVIEW & DRILLS',
+      items: [
+        { label: 'AI Technical Studio', href: '/interviews/technical', icon: Code2 },
+        { label: 'STAR Behavioral Studio', href: '/interviews/hr', icon: Users2 },
+        { label: 'Aptitude Arena', href: '/aptitude', icon: Brain },
+        { label: 'Communication Lab', href: '/communication', icon: Mic },
+      ],
+    },
+    {
+      title: 'INTELLIGENCE & COACH',
+      items: [
+        { label: 'Readiness Telemetry', href: '/progress', icon: TrendingUp },
+        { label: 'AI Career Coach', href: '/coach', icon: Bot, pulse: true },
+      ],
+    },
   ];
-
-  const careerNav = [
-    { label: 'Suitability', href: '/suitability', icon: Target, badge: '78%' },
-    { label: 'Skill Gaps', href: '/skills', icon: GitPullRequest },
-    { label: 'Roadmap', href: '/roadmap', icon: Map, badge: '42%' },
-    { label: 'Resume (ATS)', href: '/resume', icon: FileCheck, badge: '74' },
-  ];
-
-  const practiceNav = [
-    { label: 'Technical Interview', href: '/interviews/technical', icon: Code2 },
-    { label: 'HR Interview', href: '/interviews/hr', icon: Users2 },
-    { label: 'Aptitude Arena', href: '/aptitude', icon: Brain },
-    { label: 'Communication Lab', href: '/communication', icon: Mic },
-  ];
-
-  const intelligenceNav = [
-    { label: 'Readiness & Progress', href: '/progress', icon: TrendingUp },
-    { label: 'AI Career Coach', href: '/coach', icon: Bot, pulse: true },
-  ];
-
-  const renderNavGroup = (items: typeof primaryNav, groupTitle?: string) => (
-    <div className="space-y-0.5">
-      {groupTitle && (
-        <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
-          {groupTitle}
-        </div>
-      )}
-      {items.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onMouseEnter={() => soundFX.playHover()}
-            onClick={() => soundFX.playClick()}
-            className={cn(
-              'flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors group relative',
-              isActive
-                ? 'bg-cyan-500/10 text-cyan-300 font-semibold border-l-2 border-cyan-400 pl-2.5'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-[#121826]'
-            )}
-          >
-            <div className="flex items-center gap-2.5">
-              <Icon className={cn('w-4 h-4 transition-colors', isActive ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-300')} />
-              <span>{item.label}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {Boolean((item as { pulse?: boolean }).pulse) && (
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              )}
-              {Boolean((item as { badge?: string }).badge) && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#161f30] text-slate-400 border border-[#1e293b] font-mono">
-                  {String((item as { badge?: string }).badge)}
-                </span>
-              )}
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
 
   return (
-    <aside className="w-60 shrink-0 border-r border-[#1e293b] bg-[#090d16] flex flex-col justify-between py-4 px-3 min-h-[calc(100vh-4rem)] select-none">
-      <div className="space-y-4">
-        {/* Brand Header */}
-        <Link href="/dashboard" className="block px-2 pt-1 pb-2">
-          <div className="flex items-center justify-center p-2 rounded-xl bg-white shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-            <Image
-              src="/brand/careeros-logo.png"
-              alt="CareerOS — From Student to Job-Ready"
-              width={140}
-              height={40}
-              className="object-contain h-7 w-auto"
-              priority
-            />
-          </div>
-        </Link>
-
-        {/* Compact Target Role & Readiness Header Pill */}
-        <div className="p-2.5 rounded-xl bg-[#0f1523] border border-[#1e293b]">
-          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
-            <span>TARGET ROLE</span>
-            <span className="text-cyan-400 font-bold">{readinessScores.overall}% READY</span>
-          </div>
-          <div className="text-xs font-semibold text-white truncate">
-            {activeTargetRole.title}
-          </div>
-          <div className="h-1 w-full bg-[#1b2436] rounded-full overflow-hidden mt-2">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-500 to-violet-500 rounded-full transition-all duration-500"
-              style={{ width: `${readinessScores.overall}%` }}
-            />
+    <aside className="w-64 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-canvas)] flex flex-col justify-between py-6 px-4 min-h-[calc(100vh-4rem)] select-none">
+      <div className="space-y-6">
+        {/* Dynamic Target Role & Readiness Hero Card */}
+        <div className="p-4 rounded-2xl bg-[var(--surface-primary)] border border-[var(--border-default)] shadow-sm">
+          <div className="flex items-center gap-3">
+            <ProgressRing value={readinessScores.overall} size={54} strokeWidth={5} variant="cyan" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] font-bold">
+                READINESS GATE
+              </div>
+              <div className="text-xs font-bold text-[var(--text-primary)] truncate mt-0.5">
+                {activeTargetRole.title}
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium mt-1">
+                <Flame className="w-3 h-3 text-amber-400" />
+                <span>+{readinessScores.weeklyDelta}% this week</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Navigation Sections */}
-        <nav className="space-y-2 overflow-y-auto max-h-[calc(100vh-20rem)] pr-0.5">
-          {renderNavGroup(primaryNav)}
-          {renderNavGroup(careerNav, 'My Career')}
-          {renderNavGroup(practiceNav, 'Practice & Testing')}
-          {renderNavGroup(intelligenceNav, 'Intelligence')}
+        {/* Navigation Groups */}
+        <nav className="space-y-5">
+          {navSections.map((section) => (
+            <div key={section.title} className="space-y-1">
+              <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)] font-mono">
+                {section.title}
+              </div>
+
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onMouseEnter={() => soundFX.playHover()}
+                    onClick={() => soundFX.playClick()}
+                    className={cn(
+                      'group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150',
+                      isActive
+                        ? 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-200 font-semibold shadow-sm border border-cyan-500/30'
+                        : 'text-[var(--text-secondary)] hover:text-white hover:bg-[var(--surface-primary)]'
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon
+                        className={cn(
+                          'w-4 h-4 transition-colors shrink-0',
+                          isActive ? 'text-cyan-400' : 'text-[var(--text-muted)] group-hover:text-cyan-300'
+                        )}
+                      />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {item.pulse && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                      )}
+                      {item.badge && (
+                        <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded-md bg-[var(--surface-secondary)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
       </div>
 
-      {/* Bottom Account & Settings */}
-      <div className="pt-3 border-t border-[#1e293b] space-y-1">
+      {/* Footer / University Status Pill */}
+      <div className="pt-4 border-t border-[var(--border-subtle)]">
         <Link
           href="/profile"
-          onMouseEnter={() => soundFX.playHover()}
           onClick={() => soundFX.playClick()}
-          className={cn(
-            'flex items-center justify-between p-2 rounded-lg text-xs transition-colors',
-            pathname === '/profile'
-              ? 'bg-cyan-500/10 text-cyan-300 font-semibold'
-              : 'text-slate-400 hover:text-white hover:bg-[#121826]'
-          )}
+          className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] border border-[var(--border-subtle)] transition-colors group"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-[10px] font-bold text-white">
-              JS
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <div className="text-left">
-              <span className="block text-xs font-medium text-slate-200 leading-tight">
-                {studentProfile.fullName.split(' ')[0]}
-              </span>
-              <span className="block text-[10px] text-slate-500 leading-tight">
-                Profile & Settings
-              </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate">
+                {studentProfile.university || 'Placement Sync'}
+              </p>
+              <p className="text-[9px] text-emerald-400 font-mono">
+                Verified Candidate
+              </p>
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+          <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-white" />
         </Link>
       </div>
     </aside>

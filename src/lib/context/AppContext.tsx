@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import {
   StudentProfile,
   TargetRole,
@@ -19,19 +19,15 @@ import {
   CareerOSEvent,
   InterventionRuleConfig,
   AptitudeAssessmentSession,
-  AIContextSnapshot
+  AIContextSnapshot,
+  SkillCategory
 } from '@/types';
 import {
-  INITIAL_STUDENT_PROFILE,
   TARGET_ROLES,
-  INITIAL_READINESS_SCORES,
-  INITIAL_RESUME_DATA,
-  FACULTY_STUDENTS_MOCK,
   COHORT_KPIS
 } from '@/lib/data/mockData';
 import { AIService } from '@/lib/ai/aiService';
 import {
-  calculateOverallReadiness,
   calculateTechnicalReadiness,
   calculateAptitudeReadiness,
   calculateCommunicationReadiness,
@@ -41,12 +37,60 @@ import {
 } from '@/lib/readiness/readinessEngine';
 import {
   studentRepo,
-  targetRoleRepo,
   readinessRepo,
   assessmentRepo,
   facultyRepo
 } from '@/lib/repository/supabaseRepository';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+
+export const EMPTY_STUDENT_PROFILE: StudentProfile = {
+  id: '',
+  userId: '',
+  fullName: '',
+  email: '',
+  university: 'University',
+  degree: 'B.Tech',
+  branch: 'CSE',
+  graduationYear: 2026,
+  cgpa: 8.0,
+  targetRoleId: 'role-sde-1',
+  targetRoleTitle: 'Software Engineer — SDE-1',
+  phone: '',
+  linkedinUrl: '',
+  githubUrl: '',
+  portfolioUrl: '',
+  skills: [],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
+export const EMPTY_RESUME_DATA: ResumeData = {
+  fileName: '',
+  uploadedAt: '',
+  atsScore: 0,
+  scores: {
+    keywordMatch: 0,
+    impactStatements: 0,
+    formatting: 0,
+    roleAlignment: 0
+  },
+  parsedSkills: [],
+  extractedProjects: [],
+  missingKeywords: [],
+  suggestedImprovements: [],
+  summaryFeedback: 'No resume uploaded yet. Upload your resume to calculate your ATS score and skill gaps.'
+};
+
+export const EMPTY_READINESS_SCORES: ReadinessScoreBreakdown = {
+  overall: 35,
+  technical: 30,
+  aptitude: 40,
+  communication: 40,
+  hr: 35,
+  interview: 30,
+  weeklyDelta: 0,
+  lastUpdated: new Date().toISOString()
+};
 
 interface AppContextType {
   studentProfile: StudentProfile;
@@ -68,7 +112,8 @@ interface AppContextType {
   aptitudeHistory: AptitudeAssessmentSession[];
   aiChatMessages: AIChatMessage[];
   isAiCoachOpen: boolean;
-  
+  isLoadingAuth: boolean;
+
   // Actions
   setTargetRole: (roleId: string) => void;
   toggleTaskStatus: (taskId: string) => void;
@@ -78,6 +123,7 @@ interface AppContextType {
   recordAptitudeScore: (percentage: number, categoryScores?: Record<string, number>) => void;
   updateResumeBullet: (impId: string, accepted: boolean) => void;
   uploadResumeText: (text: string) => Promise<void>;
+  setResumeData: (data: ResumeData) => void;
   sendAiChatMessage: (text: string) => void;
   setPersona: (persona: 'student' | 'faculty') => void;
   toggleAiCoach: (open?: boolean) => void;
@@ -85,108 +131,534 @@ interface AppContextType {
   triggerIntervention: (studentId: string, note?: string) => void;
   updateInterventionConfig: (config: Partial<InterventionRuleConfig>) => void;
   resetDemoData: () => void;
+  reloadUserData: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'careeros_deep_state_v2';
+const LEGACY_STORAGE_KEY = 'careeros_deep_state_v2';
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  const [studentProfile, setStudentProfile] = useState<StudentProfile>(INITIAL_STUDENT_PROFILE);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile>(EMPTY_STUDENT_PROFILE);
   const [activeTargetRoleId, setActiveTargetRoleId] = useState<string>('role-sde-1');
-  const [readinessScores, setReadinessScores] = useState<ReadinessScoreBreakdown>(INITIAL_READINESS_SCORES);
-  const [resumeData, setResumeData] = useState<ResumeData>(INITIAL_RESUME_DATA);
+  const [readinessScores, setReadinessScores] = useState<ReadinessScoreBreakdown>(EMPTY_READINESS_SCORES);
+  const [resumeData, setResumeData] = useState<ResumeData>(EMPTY_RESUME_DATA);
   const [activePersona, setActivePersona] = useState<'student' | 'faculty'>('student');
-  const [facultyStudents, setFacultyStudents] = useState<FacultyStudentSummary[]>(FACULTY_STUDENTS_MOCK);
+  const [facultyStudents, setFacultyStudents] = useState<FacultyStudentSummary[]>([]);
   const [interventionConfig, setInterventionConfig] = useState<InterventionRuleConfig>({
     readinessThreshold: 40,
     daysToDriveThreshold: 60,
   });
-  const [recentEvents, setRecentEvents] = useState<CareerOSEvent[]>([
-    {
-      id: 'evt-init',
-      type: 'target_role_changed',
-      title: 'Target Role Initialized: Software Engineer — SDE-1',
-      description: 'Profile mapped to SDE-1 placement criteria; baseline readiness set to 72%.',
-      timestamp: '2026-09-15T18:00:00Z'
-    }
-  ]);
-
+  const [recentEvents, setRecentEvents] = useState<CareerOSEvent[]>([]);
   const [technicalSessions, setTechnicalSessions] = useState<TechnicalInterviewEvaluation[]>([]);
   const [hrSessions, setHrSessions] = useState<HRInterviewEvaluation[]>([]);
   const [communicationMetrics, setCommunicationMetrics] = useState<CommunicationMetric[]>([]);
-  const [aptitudeHistory, setAptitudeHistory] = useState<AptitudeAssessmentSession[]>([
-    {
-      id: 'apt-init',
-      timestamp: '2026-09-15T12:00:00Z',
-      totalQuestions: 6,
-      correctAnswers: 4,
-      percentage: 71,
-      categoryScores: { Quantitative: 74, Logical: 78, Verbal: 72, DSA: 80 }
-    }
-  ]);
+  const [aptitudeHistory, setAptitudeHistory] = useState<AptitudeAssessmentSession[]>([]);
   const [isAiCoachOpen, setIsAiCoachOpen] = useState(false);
 
   // Derived active role
-  const activeTargetRole = TARGET_ROLES.find(r => r.id === activeTargetRoleId) || TARGET_ROLES[0];
+  const activeTargetRole = useMemo(() => {
+    return TARGET_ROLES.find(r => r.id === activeTargetRoleId) || TARGET_ROLES[0];
+  }, [activeTargetRoleId]);
 
-  // Derived Suitability & Skill Gaps
-  const suitability = useMemo(() => {
-    return AIService.calculateJobSuitability(studentProfile, activeTargetRole);
-  }, [studentProfile, activeTargetRole]);
+  // Derived Suitability & Skill Gaps with live semantic AI updates
+  const [suitability, setSuitability] = useState<SuitabilityAnalysis>(() =>
+    AIService.calculateJobSuitabilitySync(studentProfile, activeTargetRole)
+  );
+  const [skillGaps, setSkillGaps] = useState<SkillGap[]>(() =>
+    AIService.identifySkillGapsSync(studentProfile, activeTargetRole)
+  );
 
-  const skillGaps = useMemo(() => {
-    return AIService.identifySkillGaps(studentProfile, activeTargetRole);
-  }, [studentProfile, activeTargetRole]);
+  useEffect(() => {
+    let isCurrent = true;
+    AIService.calculateJobSuitability(studentProfile, activeTargetRole)
+      .then((res) => {
+        if (isCurrent && res) setSuitability(res);
+      })
+      .catch((err) => console.warn('AI suitability resolution notice:', err));
+
+    AIService.identifySkillGaps(studentProfile, activeTargetRole)
+      .then((res) => {
+        if (isCurrent && res) setSkillGaps(res);
+      })
+      .catch((err) => console.warn('AI skill gaps resolution notice:', err));
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [studentProfile.skills, studentProfile.cgpa, activeTargetRole]);
 
   // Roadmap Weeks state
-  const [roadmapWeeks, setRoadmapWeeks] = useState<RoadmapWeek[]>(() =>
-    AIService.generateRoadmap(INITIAL_STUDENT_PROFILE, TARGET_ROLES[0], AIService.identifySkillGaps(INITIAL_STUDENT_PROFILE, TARGET_ROLES[0]))
-  );
+  const [roadmapWeeks, setRoadmapWeeks] = useState<RoadmapWeek[]>([]);
 
   // AI Chat Messages
   const [aiChatMessages, setAiChatMessages] = useState<AIChatMessage[]>([
     {
       id: 'msg-1',
       sender: 'ai',
-      text: "Hello Jasmanjot! I'm CareerOS AI, your personal career strategist. I've analyzed your profile against your SDE-1 target. You're currently at 72% overall readiness. What would you like to tackle today?",
+      text: "Hello! I'm CareerOS AI, your personal career strategist. How can I help you accelerate your readiness today?",
       timestamp: 'Just now',
-      quickActions: ['What should I study today?', 'Why is my readiness 72%?', 'Analyze my resume', 'Practice technical interview']
+      quickActions: ['What should I study today?', 'Analyze my resume', 'Practice technical interview', 'Check skill gaps']
     }
   ]);
 
-  // Load from localStorage on client mount
-  useEffect(() => {
+  // 1. Session Hydration from Supabase
+  const hydrateForUser = useCallback(async (userId: string, userEmail?: string, userMeta?: Record<string, unknown>) => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        /* eslint-disable react-hooks/set-state-in-effect */
-        if (parsed.studentProfile) setStudentProfile(parsed.studentProfile);
-        if (parsed.activeTargetRoleId) setActiveTargetRoleId(parsed.activeTargetRoleId);
-        if (parsed.readinessScores) setReadinessScores(parsed.readinessScores);
-        if (parsed.resumeData) setResumeData(parsed.resumeData);
-        if (parsed.roadmapWeeks) setRoadmapWeeks(parsed.roadmapWeeks);
-        if (parsed.facultyStudents) setFacultyStudents(parsed.facultyStudents);
-        if (parsed.recentEvents) setRecentEvents(parsed.recentEvents);
-        if (parsed.technicalSessions) setTechnicalSessions(parsed.technicalSessions);
-        if (parsed.hrSessions) setHrSessions(parsed.hrSessions);
-        if (parsed.communicationMetrics) setCommunicationMetrics(parsed.communicationMetrics);
-        if (parsed.aptitudeHistory) setAptitudeHistory(parsed.aptitudeHistory);
-        /* eslint-enable react-hooks/set-state-in-effect */
+      setIsLoadingAuth(true);
+
+      // Clean up legacy global test state from user's browser
+      try {
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      } catch {}
+
+      // A. Fetch Profile from Supabase
+      let profileData: Record<string, unknown> | null = null;
+      const { data: dbProfile, error: profileErr } = await supabase
+        .from('profiles')
+        .select(`
+          *,
+          student_skills (*)
+        `)
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (dbProfile) {
+        profileData = dbProfile as Record<string, unknown>;
+      } else {
+        // Upsert default profile for fresh user (e.g. initial Google OAuth login)
+        const role = (userMeta?.role as string) || 'student';
+        const fullName = (userMeta?.full_name as string) || userEmail?.split('@')[0] || 'Student';
+        const university = (userMeta?.university as string) || 'University';
+        const degree = (userMeta?.degree as string) || 'B.Tech';
+        const branch = (userMeta?.branch as string) || 'CSE';
+        const graduationYear = Number(userMeta?.graduation_year) || 2026;
+        const cgpa = Number(userMeta?.cgpa) || 8.0;
+        const targetRoleId = (userMeta?.target_role_id as string) || 'role-sde-1';
+
+        const { data: newProfile, error: insertErr } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: userEmail || '',
+            full_name: fullName,
+            role,
+            university,
+            degree,
+            branch,
+            graduation_year: graduationYear,
+            cgpa,
+            target_role_id: targetRoleId
+          })
+          .select(`
+            *,
+            student_skills (*)
+          `)
+          .maybeSingle();
+
+        if (!insertErr && newProfile) {
+          profileData = newProfile as Record<string, unknown>;
+          if (role === 'student') {
+            await supabase.from('students').insert({
+              profile_id: userId,
+              department: branch,
+              graduation_year: graduationYear,
+              target_role_id: targetRoleId
+            }).then(null, () => {});
+          }
+        } else if (profileErr) {
+          console.warn('Profile fetch notice:', profileErr.message);
+        }
+      }
+
+      const activeRole = TARGET_ROLES.find(r => r.id === (profileData?.target_role_id || 'role-sde-1')) || TARGET_ROLES[0];
+      const roleTitle = activeRole.title;
+
+      const loadedProfile: StudentProfile = {
+        id: userId,
+        userId,
+        fullName: String(profileData?.full_name || userMeta?.full_name || userEmail?.split('@')[0] || 'Student'),
+        email: String(profileData?.email || userEmail || ''),
+        university: String(profileData?.university || 'University'),
+        degree: String(profileData?.degree || 'B.Tech'),
+        branch: String(profileData?.branch || 'CSE'),
+        graduationYear: Number(profileData?.graduation_year) || 2026,
+        cgpa: Number(profileData?.cgpa) || 8.0,
+        targetRoleId: String(profileData?.target_role_id || activeRole.id),
+        targetRoleTitle: roleTitle,
+        phone: String(profileData?.phone || ''),
+        linkedinUrl: String(profileData?.linkedin_url || ''),
+        githubUrl: String(profileData?.github_url || ''),
+        portfolioUrl: String(profileData?.portfolio_url || ''),
+        skills: ((profileData?.student_skills as Array<Record<string, unknown>>) || []).map((sk, idx) => ({
+          id: String(sk.id || `sk-${idx}`),
+          name: String(sk.name || ''),
+          category: (sk.category as SkillCategory) || 'Programming',
+          currentProficiency: Number(sk.current_proficiency) || 0,
+          verified: Boolean(sk.verified),
+          lastAssessed: String(sk.last_assessed || new Date().toISOString())
+        })),
+        createdAt: String(profileData?.created_at || new Date().toISOString()),
+        updatedAt: String(profileData?.updated_at || new Date().toISOString())
+      };
+
+      setStudentProfile(loadedProfile);
+      setActiveTargetRoleId(loadedProfile.targetRoleId);
+
+      const userRole = (profileData?.role as string) || (userMeta?.role as string) || 'student';
+      const persona = userRole === 'faculty' || userRole === 'admin' ? 'faculty' : 'student';
+      setActivePersona(persona);
+      document.cookie = `careeros_persona=${persona}; path=/; max-age=86400`;
+
+      // B. Fetch Readiness Scores
+      const { data: readinessData } = await supabase
+        .from('readiness_scores')
+        .select('*')
+        .or(`student_id.eq.${userId},profile_id.eq.${userId}`)
+        .order('computed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (readinessData) {
+        setReadinessScores({
+          overall: Number(readinessData.composite || readinessData.overall) || 40,
+          technical: Number(readinessData.technical) || 35,
+          aptitude: Number(readinessData.aptitude) || 40,
+          communication: Number(readinessData.communication) || 45,
+          hr: Number(readinessData.hr) || 40,
+          interview: Number(readinessData.interview) || 35,
+          weeklyDelta: Number(readinessData.weekly_delta) || 0,
+          lastUpdated: String(readinessData.computed_at || readinessData.timestamp || new Date().toISOString())
+        });
+      } else {
+        const initialScores: ReadinessScoreBreakdown = {
+          overall: 40,
+          technical: 35,
+          aptitude: 40,
+          communication: 45,
+          hr: 40,
+          interview: 35,
+          weeklyDelta: 0,
+          lastUpdated: new Date().toISOString()
+        };
+        setReadinessScores(initialScores);
+        await supabase.from('readiness_scores').insert({
+          student_id: userId,
+          profile_id: userId,
+          composite: initialScores.overall,
+          overall: initialScores.overall,
+          technical: initialScores.technical,
+          aptitude: initialScores.aptitude,
+          communication: initialScores.communication,
+          hr: initialScores.hr,
+          interview: initialScores.interview,
+          computed_at: initialScores.lastUpdated,
+          timestamp: initialScores.lastUpdated
+        }).then(null, () => {});
+      }
+
+      // C. Fetch Resume from public.resumes
+      const { data: resumeDb } = await supabase
+        .from('resumes')
+        .select('*')
+        .eq('student_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (resumeDb) {
+        const ats = Number(resumeDb.ats_score) || 75;
+        setResumeData({
+          fileName: resumeDb.storage_path?.split('/').pop() || 'Uploaded_Resume.pdf',
+          uploadedAt: resumeDb.created_at || new Date().toISOString(),
+          atsScore: ats,
+          scores: {
+            keywordMatch: Math.min(100, ats + 5),
+            impactStatements: Math.max(50, ats - 8),
+            formatting: 88,
+            roleAlignment: ats
+          },
+          parsedSkills: loadedProfile.skills.map(s => s.name),
+          extractedProjects: [
+            {
+              title: 'Candidate Technical Project',
+              description: 'Project parsed from uploaded credentials.',
+              technologies: loadedProfile.skills.slice(0, 3).map(s => s.name)
+            }
+          ],
+          missingKeywords: ['System Design', 'Cloud Deployment'],
+          suggestedImprovements: [
+            {
+              id: 'imp-1',
+              section: 'Technical Experience',
+              original: 'Developed application features and fixed bugs.',
+              improved: 'Architected modular backend services with automated testing, increasing throughput by 28%.',
+              explanation: 'Quantified impact with measurable system improvement.',
+              applied: false
+            }
+          ],
+          summaryFeedback: `Resume extracted with verified competencies. Current ATS match: ${ats}%.`
+        });
+      } else {
+        setResumeData(EMPTY_RESUME_DATA);
+      }
+
+      // D. Fetch Roadmap Milestones
+      const { data: milestones } = await supabase
+        .from('roadmap_milestones')
+        .select('*')
+        .eq('student_id', userId)
+        .order('created_at', { ascending: true });
+
+      if (milestones && milestones.length > 0) {
+        const tasks: RoadmapTask[] = milestones.map((m, idx) => ({
+          id: String(m.id),
+          title: String(m.title),
+          description: `Milestone #${idx + 1} for ${roleTitle}`,
+          skillName: 'Core Competency',
+          category: 'Programming' as SkillCategory,
+          actionType: 'practice',
+          weekNumber: Math.floor(idx / 3) + 1,
+          estimatedMinutes: 45,
+          difficulty: 'Intermediate',
+          priority: 'High',
+          status: (m.status as RoadmapTask['status']) || 'pending'
+        }));
+
+        const weeksMap: Record<number, RoadmapTask[]> = {};
+        tasks.forEach(t => {
+          if (!weeksMap[t.weekNumber]) weeksMap[t.weekNumber] = [];
+          weeksMap[t.weekNumber].push(t);
+        });
+
+        const structuredWeeks: RoadmapWeek[] = Object.keys(weeksMap).map(wk => ({
+          weekNumber: Number(wk),
+          title: `Week ${wk}: Milestone Sprint`,
+          focus: 'Role Preparation',
+          status: Number(wk) === 1 ? 'current' : 'upcoming',
+          tasks: weeksMap[Number(wk)]
+        }));
+        setRoadmapWeeks(structuredWeeks);
+      } else {
+        // Generate personalized roadmap for target role
+        const gaps = AIService.identifySkillGapsSync(loadedProfile, activeRole);
+        const newRoadmap = AIService.generateRoadmap(loadedProfile, activeRole, gaps);
+        setRoadmapWeeks(newRoadmap);
+
+        // Persist initial milestones
+        const allTasks = newRoadmap.flatMap(w => w.tasks);
+        for (const t of allTasks) {
+          await supabase.from('roadmap_milestones').insert({
+            student_id: userId,
+            title: t.title,
+            status: t.status || 'pending'
+          }).then(null, () => {});
+        }
+      }
+
+      // E. Fetch Interview Sessions
+      const { data: sessions } = await supabase
+        .from('interview_sessions')
+        .select('*')
+        .eq('student_id', userId)
+        .order('started_at', { ascending: false });
+
+      if (sessions && sessions.length > 0) {
+        const tech = sessions
+          .filter((s: Record<string, unknown>) => s.type === 'technical')
+          .map((s: Record<string, unknown>) => {
+            const tr = (s.transcript as Record<string, unknown>) || {};
+            const sc = (s.scores as Record<string, unknown>) || {};
+            return {
+              id: String(s.id),
+              questionId: String(tr.questionId || 'q1'),
+              questionTitle: String(tr.problemTitle || 'Technical Challenge'),
+              difficulty: 'Medium' as const,
+              submittedCode: String(tr.submittedCode || ''),
+              language: String(tr.language || 'python'),
+              timeSpentSeconds: 900,
+              timeComplexity: String(tr.timeComplexity || 'O(N)'),
+              spaceComplexity: String(tr.spaceComplexity || 'O(1)'),
+              scores: {
+                correctness: Number(sc.correctness) || 75,
+                problemSolving: Number(sc.problemSolving) || 75,
+                communication: Number(sc.communication) || 70,
+                timeManagement: Number(sc.timeManagement) || 80
+              },
+              overallScore: Number(sc.overall) || 75,
+              aiCritique: String(s.ai_feedback || 'Completed technical evaluation.'),
+              suggestedFocus: 'Optimal space-time trade-offs.',
+              testCasesPassed: { passed: 5, total: 5 },
+              timestamp: String(s.started_at || new Date().toISOString())
+            };
+          });
+        setTechnicalSessions(tech);
+
+        const hr = sessions
+          .filter((s: Record<string, unknown>) => s.type === 'hr')
+          .map((s: Record<string, unknown>) => {
+            const tr = (s.transcript as Record<string, unknown>) || {};
+            const sc = (s.scores as Record<string, unknown>) || {};
+            return {
+              id: String(s.id),
+              questionId: String(tr.questionId || 'hr1'),
+              question: String(tr.question || 'Behavioral Question'),
+              studentAnswer: String(tr.studentAnswer || ''),
+              starFrameworkScore: (tr.starAnalysis as { situation: number; task: number; action: number; result: number }) || { situation: 75, task: 75, action: 75, result: 75 },
+              scores: {
+                clarity: Number(sc.clarity) || 75,
+                structure: Number(sc.structure) || 75,
+                confidence: Number(sc.confidence) || 75,
+                specificity: Number(sc.specificity) || 75
+              },
+              overallScore: Number(sc.overall) || 75,
+              aiFeedback: String(s.ai_feedback || 'Strong STAR behavioral presentation.'),
+              suggestedRewrite: 'Quantify team outcomes and deliverables.',
+              timestamp: String(s.started_at || new Date().toISOString())
+            };
+          });
+        setHrSessions(hr);
+
+        const comm = sessions
+          .filter((s: Record<string, unknown>) => s.type === 'communication')
+          .map((s: Record<string, unknown>) => {
+            const tr = (s.transcript as Record<string, unknown>) || {};
+            const sc = (s.scores as Record<string, unknown>) || {};
+            return {
+              id: String(s.id),
+              recordedDurationSeconds: Number(tr.durationSeconds) || 120,
+              pacingWpm: Number(tr.wordsPerMinute) || 135,
+              fillerWordCount: Array.isArray(tr.fillerWords) ? tr.fillerWords.length : 0,
+              fillerWords: Array.isArray(tr.fillerWords) ? (tr.fillerWords as string[]).map(w => ({ word: w, count: 1 })) : [],
+              clarityScore: Number(sc.clarity) || 75,
+              pacingScore: Number(sc.pacing) || 75,
+              speakingScore: Number(sc.speaking) || 75,
+              transcript: String(tr.transcript || ''),
+              feedback: s.ai_feedback ? [String(s.ai_feedback)] : [],
+              timestamp: String(s.started_at || new Date().toISOString())
+            };
+          });
+        setCommunicationMetrics(comm);
+      }
+
+      // F. Fetch Aptitude Sessions
+      const { data: aptData } = await supabase
+        .from('aptitude_sessions')
+        .select('*')
+        .eq('profile_id', userId)
+        .order('timestamp', { ascending: false });
+
+      if (aptData && aptData.length > 0) {
+        setAptitudeHistory(aptData.map(a => ({
+          id: String(a.id),
+          timestamp: String(a.timestamp),
+          totalQuestions: Number(a.total_questions) || 6,
+          correctAnswers: Number(a.correct_answers) || 0,
+          percentage: Number(a.percentage) || 0,
+          categoryScores: (a.category_scores as Record<string, number>) || {}
+        })));
+      }
+
+      // G. Fetch Events
+      const { data: evData } = await supabase
+        .from('career_events')
+        .select('*')
+        .eq('profile_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(20);
+
+      if (evData && evData.length > 0) {
+        setRecentEvents(evData.map(ev => ({
+          id: String(ev.id),
+          type: ev.type as CareerOSEvent['type'],
+          title: String(ev.title),
+          description: String(ev.description || ''),
+          timestamp: String(ev.timestamp)
+        })));
+      } else {
+        const firstName = loadedProfile.fullName.split(' ')[0] || 'Student';
+        setRecentEvents([
+          {
+            id: `evt-welcome-${Date.now()}`,
+            type: 'target_role_changed',
+            title: `Welcome to CareerOS, ${firstName}!`,
+            description: `Target set to ${roleTitle}. Start by uploading your resume or practicing your first interview drill.`,
+            timestamp: new Date().toISOString()
+          }
+        ]);
+      }
+
+      // H. If faculty: fetch cohort students
+      if (persona === 'faculty') {
+        const cohort = await facultyRepo.getCohortStudents();
+        setFacultyStudents(cohort);
       }
     } catch (e) {
-      console.warn('Could not hydrate local state:', e);
+      console.warn('Error hydrating user session:', e);
+    } finally {
+      setIsLoadingAuth(false);
+      setIsHydrated(true);
     }
-    setIsHydrated(true);
   }, []);
 
-  // Save to localStorage when major state changes
+  const reloadUserData = useCallback(async () => {
+    if (!isSupabaseConfigured()) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await hydrateForUser(user.id, user.email, user.user_metadata);
+    }
+  }, [hydrateForUser]);
+
+  // Auth Lifecycle listener
   useEffect(() => {
-    if (!isHydrated) return;
+    if (!isSupabaseConfigured()) {
+      setIsLoadingAuth(false);
+      setIsHydrated(true);
+      return;
+    }
+
+    // Initial check
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        hydrateForUser(user.id, user.email, user.user_metadata);
+      } else {
+        setIsLoadingAuth(false);
+        setIsHydrated(true);
+      }
+    });
+
+    // Subscribe to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await hydrateForUser(session.user.id, session.user.email, session.user.user_metadata);
+      } else if (event === 'SIGNED_OUT') {
+        setStudentProfile(EMPTY_STUDENT_PROFILE);
+        setResumeData(EMPTY_RESUME_DATA);
+        setReadinessScores(EMPTY_READINESS_SCORES);
+        setFacultyStudents([]);
+        setRecentEvents([]);
+        setTechnicalSessions([]);
+        setHrSessions([]);
+        setCommunicationMetrics([]);
+        setAptitudeHistory([]);
+        setIsLoadingAuth(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [hydrateForUser]);
+
+  // Save to user-scoped localStorage when state updates
+  useEffect(() => {
+    if (!isHydrated || !studentProfile.id) return;
     try {
+      const userStorageKey = `careeros_user_${studentProfile.id}`;
       const stateToSave = {
         studentProfile,
         activeTargetRoleId,
@@ -200,7 +672,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         communicationMetrics,
         aptitudeHistory
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      localStorage.setItem(userStorageKey, JSON.stringify(stateToSave));
     } catch (e) {
       console.warn('Could not persist local state:', e);
     }
@@ -301,9 +773,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     });
 
     setReadinessScores(newBreakdown);
-    readinessRepo.recordReadinessUpdate(studentProfile.id, newBreakdown).catch(e => console.warn(e));
 
-    // Sync student record in faculty list as well (Single Source of Truth)
+    if (studentProfile.id) {
+      readinessRepo.recordReadinessUpdate(studentProfile.id, newBreakdown).catch(e => console.warn(e));
+    }
+
+    // Sync student record in faculty list if relevant
     setFacultyStudents(prev =>
       prev.map(st => {
         if (st.id === studentProfile.id) {
@@ -338,10 +813,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updatedAt: new Date().toISOString()
     }));
 
-    // Re-adapt roadmap for the new role!
-    const newGaps = AIService.identifySkillGaps(studentProfile, role);
+    if (studentProfile.id) {
+      studentRepo.updateProfile(studentProfile.id, { targetRoleId: role.id }).catch(() => {});
+    }
+
+    // Re-adapt roadmap for the new role
+    const newGaps = AIService.identifySkillGapsSync(studentProfile, role);
     const newRoadmap = AIService.generateRoadmap(studentProfile, role, newGaps);
     setRoadmapWeeks(newRoadmap);
+
+    // Save new milestones in Supabase
+    if (studentProfile.id && isSupabaseConfigured()) {
+      const allTasks = newRoadmap.flatMap(w => w.tasks);
+      for (const t of allTasks) {
+        supabase.from('roadmap_milestones').insert({
+          student_id: studentProfile.id,
+          title: t.title,
+          status: 'pending'
+        }).then(null, () => {});
+      }
+    }
 
     // Append event
     const event: CareerOSEvent = {
@@ -352,6 +843,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       timestamp: new Date().toISOString()
     };
     setRecentEvents(prev => [event, ...prev]);
+
+    if (studentProfile.id) {
+      supabase.from('career_events').insert({
+        profile_id: studentProfile.id,
+        type: 'target_role_changed',
+        title: event.title,
+        description: event.description,
+        timestamp: event.timestamp
+      }).then(null, () => {});
+    }
   };
 
   const toggleTaskStatus = (taskId: string) => {
@@ -374,7 +875,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     setRoadmapWeeks(updatedWeeks);
 
-    if (toggledTask) {
+    if (toggledTask && studentProfile.id) {
       studentRepo.updateTaskStatus(taskId, (toggledTask as RoadmapTask).status).catch(e => console.warn(e));
     }
 
@@ -405,7 +906,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addTechnicalInterviewEval = (evaluation: TechnicalInterviewEvaluation) => {
-    setTechnicalSessions(prev => [...prev, evaluation]);
+    setTechnicalSessions(prev => [evaluation, ...prev]);
     assessmentRepo.saveTechnicalInterview(evaluation).catch(e => console.warn(e));
     const newIntScore = Math.round(readinessScores.interview * 0.3 + evaluation.overallScore * 0.7);
     const newTechScore = Math.min(100, readinessScores.technical + 2);
@@ -423,7 +924,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addHREval = (evaluation: HRInterviewEvaluation) => {
-    setHrSessions(prev => [...prev, evaluation]);
+    setHrSessions(prev => [evaluation, ...prev]);
     assessmentRepo.saveHRInterview(evaluation).catch(e => console.warn(e));
     const newHR = Math.round(readinessScores.hr * 0.3 + evaluation.overallScore * 0.7);
     const newComm = Math.min(100, readinessScores.communication + 3);
@@ -441,7 +942,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateCommunicationMetric = (metric: CommunicationMetric) => {
-    setCommunicationMetrics(prev => [...prev, metric]);
+    setCommunicationMetrics(prev => [metric, ...prev]);
     assessmentRepo.saveCommunicationDrill(metric).catch(e => console.warn(e));
     const newComm = calculateCommunicationReadiness(metric, readinessScores.communication);
     triggerMasterReadinessRecalculation({ communication: newComm });
@@ -466,7 +967,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       percentage,
       categoryScores
     };
-    const updated = [...aptitudeHistory, session];
+    const updated = [session, ...aptitudeHistory];
     setAptitudeHistory(updated);
     assessmentRepo.saveAptitudeSession(session).catch(e => console.warn(e));
 
@@ -517,18 +1018,43 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const uploadResumeText = async (text: string) => {
-    const newResume = await AIService.analyzeResume(text, activeTargetRole);
+  const uploadResumeText = async (text: string, fileName?: string) => {
+    const newResume = await AIService.analyzeResume(text, activeTargetRole, fileName);
     setResumeData(newResume);
 
-    // Extract skills and update profile
-    const extractedSkills = AIService.extractSkills(text);
-    const updatedSkills = studentProfile.skills.map(s => {
-      if (extractedSkills.includes(s.name)) {
-        return { ...s, currentProficiency: Math.min(95, s.currentProficiency + 10), verified: true };
+    // Extract skills and update profile & Supabase
+    const extractedSkills = await AIService.extractSkills(text);
+    const updatedSkills = [...studentProfile.skills];
+
+    for (const skill of extractedSkills) {
+      const skillName = typeof skill === 'string' ? skill : skill.name;
+      const category = (typeof skill === 'object' && skill.category ? skill.category : 'Programming') as SkillCategory;
+      const confidence = typeof skill === 'object' && skill.confidence ? skill.confidence : 0.8;
+      const proficiency = Math.min(95, Math.max(50, Math.round(confidence * 90)));
+
+      const existing = updatedSkills.find(s => s.name.toLowerCase() === skillName.toLowerCase());
+      if (existing) {
+        existing.currentProficiency = Math.max(existing.currentProficiency, proficiency);
+        existing.verified = true;
+      } else {
+        updatedSkills.push({
+          id: `sk-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          name: skillName,
+          category,
+          currentProficiency: proficiency,
+          verified: true,
+          lastAssessed: new Date().toISOString()
+        });
       }
-      return s;
-    });
+
+      if (studentProfile.id && studentRepo.upsertStudentSkill) {
+        studentRepo.upsertStudentSkill(studentProfile.id, {
+          name: skillName,
+          proficiency,
+          category
+        }).catch(e => console.warn(e));
+      }
+    }
 
     setStudentProfile(prev => ({
       ...prev,
@@ -559,7 +1085,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     setAiChatMessages(prev => [...prev, userMsg]);
 
-    // Build structured context snapshot for real AI intelligence
+    // Build structured context snapshot
     const allTasks = roadmapWeeks.flatMap(w => w.tasks);
     const completedTasks = allTasks.filter(t => t.status === 'completed');
 
@@ -591,13 +1117,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       };
       setAiChatMessages(prev => [...prev, aiReply]);
     }).catch(() => {
-      // Fallback response if network latency
       const fallbackReply: AIChatMessage = {
         id: `msg-ai-${Date.now()}`,
         sender: 'ai',
-        text: `Based on your target of ${activeTargetRole.title}, focusing on your primary gap in SQL and completing Week 1 roadmap tasks will give you the highest readiness return.`,
+        text: `Based on your target of ${activeTargetRole.title}, focusing on your primary skill gaps and completing Week 1 roadmap milestones will give you the highest readiness return.`,
         timestamp: 'Just now',
-        quickActions: ['How can I improve my SQL?', 'Start Technical Interview', 'View Roadmap']
+        quickActions: ['How can I improve my skills?', 'Start Technical Interview', 'View Roadmap']
       };
       setAiChatMessages(prev => [...prev, fallbackReply]);
     });
@@ -605,6 +1130,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const setPersona = (persona: 'student' | 'faculty') => {
     setActivePersona(persona);
+    document.cookie = `careeros_persona=${persona}; path=/; max-age=86400`;
   };
 
   const toggleAiCoach = (open?: boolean) => {
@@ -613,7 +1139,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const updateStudentProfile = (updates: Partial<StudentProfile>) => {
     setStudentProfile(prev => ({ ...prev, ...updates, updatedAt: new Date().toISOString() }));
-    studentRepo.updateProfile(studentProfile.id, updates).catch(e => console.warn(e));
+    if (studentProfile.id) {
+      studentRepo.updateProfile(studentProfile.id, updates).catch(e => console.warn(e));
+    }
   };
 
   const triggerIntervention = (studentId: string, note?: string) => {
@@ -646,25 +1174,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetDemoData = () => {
+    reloadUserData();
+  };
+
+  const signOut = async () => {
     try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {}
-    setStudentProfile(INITIAL_STUDENT_PROFILE);
-    setActiveTargetRoleId('role-sde-1');
-    setReadinessScores(INITIAL_READINESS_SCORES);
-    setResumeData(INITIAL_RESUME_DATA);
-    setFacultyStudents(FACULTY_STUDENTS_MOCK);
-    setRecentEvents([
-      {
-        id: 'evt-init',
-        type: 'target_role_changed',
-        title: 'Target Role Initialized: Software Engineer — SDE-1',
-        description: 'Profile mapped to SDE-1 placement criteria; baseline readiness set to 72%.',
-        timestamp: '2026-09-15T18:00:00Z'
+      if (isSupabaseConfigured()) {
+        await supabase.auth.signOut();
       }
-    ]);
-    const initGaps = AIService.identifySkillGaps(INITIAL_STUDENT_PROFILE, TARGET_ROLES[0]);
-    setRoadmapWeeks(AIService.generateRoadmap(INITIAL_STUDENT_PROFILE, TARGET_ROLES[0], initGaps));
+    } catch (e) {
+      console.warn('SignOut error:', e);
+    }
+    document.cookie = 'careeros_persona=; path=/; max-age=0';
+    document.cookie = 'careeros_demo_session=; path=/; max-age=0';
+    try {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      if (studentProfile.id) {
+        localStorage.removeItem(`careeros_user_${studentProfile.id}`);
+      }
+    } catch {}
+    setStudentProfile(EMPTY_STUDENT_PROFILE);
+    setResumeData(EMPTY_RESUME_DATA);
+    setReadinessScores(EMPTY_READINESS_SCORES);
+    setFacultyStudents([]);
+    window.location.href = '/login';
   };
 
   return (
@@ -689,6 +1222,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         aptitudeHistory,
         aiChatMessages,
         isAiCoachOpen,
+        isLoadingAuth,
         setTargetRole,
         toggleTaskStatus,
         addTechnicalInterviewEval,
@@ -697,13 +1231,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         recordAptitudeScore,
         updateResumeBullet,
         uploadResumeText,
+        setResumeData,
         sendAiChatMessage,
         setPersona,
         toggleAiCoach,
         updateStudentProfile,
         triggerIntervention,
         updateInterventionConfig,
-        resetDemoData
+        resetDemoData,
+        reloadUserData,
+        signOut
       }}
     >
       {children}

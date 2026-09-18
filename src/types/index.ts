@@ -29,6 +29,12 @@ export interface StudentSkill {
   lastAssessed?: string;
 }
 
+export interface ExtractedSkill {
+  name: string;
+  confidence: number; // 0.0 to 1.0
+  category: SkillCategory | string;
+}
+
 export interface StudentProfile {
   id: string;
   userId: string;

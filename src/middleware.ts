@@ -56,6 +56,11 @@ export async function middleware(request: NextRequest) {
   // Refresh auth token
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Check dev-only mock auth ONLY if explicitly enabled in environment
+  const isDevMockAuthAllowed = 
+    process.env.NODE_ENV === 'development' && 
+    process.env.ENABLE_DEV_MOCK_AUTH === 'true';
+
   const isAuthRoute = pathname === '/login' || pathname === '/signup';
   const isFacultyRoute = pathname.startsWith('/faculty');
   const isProtectedRoute = 
@@ -69,34 +74,48 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/communication') ||
     pathname.startsWith('/progress') ||
     pathname.startsWith('/profile') ||
+    pathname.startsWith('/coach') ||
     isFacultyRoute;
 
-  // Check demo cookie fallback if user explicitly clicked demo access
-  const demoPersona = request.cookies.get('careeros_demo_session')?.value;
+  // Unauthenticated user attempting to access protected route
+  if (!user) {
+    // Only allow dev bypass if explicitly enabled in environment variables
+    if (isDevMockAuthAllowed) {
+      const devPersona = request.cookies.get('careeros_demo_session')?.value;
+      if (devPersona) {
+        if (isFacultyRoute && devPersona !== 'faculty') {
+          const redirectUrl = request.nextUrl.clone();
+          redirectUrl.pathname = '/dashboard';
+          return NextResponse.redirect(redirectUrl);
+        }
+        return response;
+      }
+    }
 
-  if (!user && !demoPersona && isProtectedRoute) {
+    if (isProtectedRoute) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/login';
+      redirectUrl.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+    return response;
+  }
+
+  // Authenticated user checks
+  const role = user.user_metadata?.role || 'student';
+
+  // If already signed in, prevent accessing login/signup
+  if (isAuthRoute) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = '/login';
-    redirectUrl.searchParams.set('redirectTo', pathname);
+    redirectUrl.pathname = role === 'faculty' || role === 'admin' ? '/faculty/dashboard' : '/dashboard';
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (user) {
-    const role = user.user_metadata?.role || 'student';
-
-    // If signed-in user visits /login or /signup, redirect to respective dashboard
-    if (isAuthRoute) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = role === 'faculty' ? '/faculty/dashboard' : '/dashboard';
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    // Block non-faculty from /faculty routes
-    if (isFacultyRoute && role !== 'faculty' && role !== 'admin') {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/dashboard';
-      return NextResponse.redirect(redirectUrl);
-    }
+  // Strictly block non-faculty from accessing faculty routes
+  if (isFacultyRoute && role !== 'faculty' && role !== 'admin') {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/dashboard';
+    return NextResponse.redirect(redirectUrl);
   }
 
   return response;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callClaudeJson } from '@/lib/ai/claudeClient';
+import { callUniversalAIJson } from '@/lib/ai/universalAI';
 import { checkRateLimit } from '@/lib/ai/rateLimit';
 import { StudentProfile, TargetRole, SkillGap, RoadmapWeek, ReadinessScoreBreakdown } from '@/types';
 import { AIService } from '@/lib/ai/aiService';
@@ -10,6 +10,12 @@ export async function POST(req: NextRequest) {
     const rateCheck = checkRateLimit(`ai-roadmap-${ip}`, 25);
     if (!rateCheck.success) {
       return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
+    }
+
+    const { getAIAuthContext } = await import('@/lib/ai/aiAuth');
+    const auth = await getAIAuthContext();
+    if (!auth.isAuthenticated && !auth.isDemo) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
     }
     const body = await req.json();
     const { action, profile, targetRole, skillGaps, readinessScore } = body as {
@@ -42,11 +48,10 @@ Return ONLY JSON matching:
 
       const userPrompt = `Target Role: ${roleTitle}\nReadiness: ${JSON.stringify(readinessScore || {})}\nPriority Gaps: ${JSON.stringify(skillGaps?.slice(0, 3) || [])}`;
 
-      const nextAction = await callClaudeJson({
+      const nextAction = await callUniversalAIJson({
         systemPrompt,
         userPrompt,
-        fallback
-      });
+      }).catch(() => fallback());
 
       return NextResponse.json(nextAction);
     }
@@ -56,7 +61,7 @@ Return ONLY JSON matching:
       return NextResponse.json({ error: 'profile and targetRole are required for roadmap generation' }, { status: 400 });
     }
 
-    const gaps = skillGaps || AIService.identifySkillGaps(profile, targetRole);
+    const gaps = skillGaps || (await AIService.identifySkillGaps(profile, targetRole));
     const fallback = (): RoadmapWeek[] => {
       return AIService.generateRoadmap(profile, targetRole, gaps);
     };
@@ -86,11 +91,10 @@ type RoadmapWeek = {
 
     const userPrompt = `Target Role: ${targetRole.title}\nPriority Skill Gaps:\n${gaps.map(g => `${g.skillName} (${g.priority}): Current ${g.currentLevel}% -> Required ${g.requiredLevel}%`).join('\n')}`;
 
-    const roadmap = await callClaudeJson<RoadmapWeek[]>({
+    const roadmap = await callUniversalAIJson<RoadmapWeek[]>({
       systemPrompt,
       userPrompt,
-      fallback
-    });
+    }).catch(() => fallback());
 
     return NextResponse.json({ roadmap });
   } catch (e: unknown) {

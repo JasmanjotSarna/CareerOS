@@ -1,22 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   Bot, 
-  GraduationCap, 
-  Building2, 
+  Sparkles,
+  Volume2, 
+  VolumeX, 
+  ChevronDown,
   Briefcase,
-  RotateCcw,
-  Volume2,
-  VolumeX,
-  ChevronRight
+  GraduationCap,
+  Users2,
+  LogOut,
+  User,
+  ShieldCheck,
+  Search
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { soundFX } from '@/components/effects/SoundFX';
+import { cn } from '@/lib/utils';
 
 export const TopNav: React.FC = () => {
   const pathname = usePathname();
@@ -30,10 +36,11 @@ export const TopNav: React.FC = () => {
     targetRoles, 
     setTargetRole,
     readinessScores,
-    resetDemoData,
-    cohortKPIs 
+    signOut
   } = useApp();
 
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(() => {
     return typeof window !== 'undefined' ? soundFX.isEnabled() : true;
   });
@@ -55,179 +62,241 @@ export const TopNav: React.FC = () => {
     }
   };
 
-  // Human readable page titles for breadcrumb
-  const getPageContext = () => {
+  const userInitials = useMemo(() => {
+    if (activePersona === 'faculty') return 'FC';
+    if (!studentProfile.fullName) return 'U';
+    const parts = studentProfile.fullName.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }, [studentProfile.fullName, activePersona]);
+
+  const getPageTitle = () => {
     if (pathname === '/' || pathname === '/dashboard') return 'Dashboard';
-    if (pathname === '/suitability') return 'Job Suitability';
-    if (pathname === '/skills') return 'Skill Gap Analysis';
+    if (pathname === '/suitability') return 'Role Suitability';
+    if (pathname === '/skills') return 'Skill Gap Matrix';
     if (pathname === '/roadmap') return 'Personalized Roadmap';
     if (pathname === '/resume') return 'ATS Resume Optimizer';
-    if (pathname === '/interviews/technical') return 'Technical Interview';
-    if (pathname === '/interviews/hr') return 'HR Interview (STAR)';
+    if (pathname === '/interviews/technical') return 'AI Technical Studio';
+    if (pathname === '/interviews/hr') return 'STAR Behavioral Studio';
     if (pathname === '/communication') return 'Communication Lab';
-    if (pathname === '/aptitude') return 'Aptitude & DSA Arena';
-    if (pathname === '/progress') return 'Readiness & Progress';
-    if (pathname === '/coach') return 'AI Career Coach';
+    if (pathname === '/aptitude') return 'Aptitude Arena';
+    if (pathname === '/progress') return 'Readiness Telemetry';
+    if (pathname === '/coach') return 'AI Career Strategist';
     if (pathname === '/profile') return 'Profile & Settings';
-    if (pathname === '/faculty/dashboard') return 'Placement Cohort Intelligence';
-    if (pathname.startsWith('/faculty/students')) return 'Student Directory';
-    return 'Placement Intelligence';
+    if (pathname === '/faculty/dashboard') return 'Dean & Placement Console';
+    if (pathname.startsWith('/faculty/students')) return 'Cohort Directory';
+    return 'Career Intelligence';
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#1e293b] bg-[#080b12]/95 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-        
-        {/* Left: Brand Logo & Page Context Breadcrumb */}
-        <div className="flex items-center gap-4">
-          <Link 
-            href="/" 
-            onMouseEnter={() => soundFX.playHover()}
+    <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/85 backdrop-blur-xl transition-colors">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        {/* Left Section: Brand & Breadcrumb */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          <Link
+            href="/"
             onClick={() => soundFX.playClick()}
-            className="flex items-center gap-2 group cursor-pointer"
+            className="flex items-center gap-2.5 group"
           >
-            <div className="flex items-center justify-center px-2 py-1 rounded-lg bg-white shadow-sm border border-slate-200 group-hover:shadow transition-shadow">
-              <Image
-                src="/brand/careeros-logo.png"
-                alt="CareerOS"
-                width={105}
-                height={30}
-                className="object-contain h-6 w-auto"
-                priority
-              />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 p-0.5 shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform flex items-center justify-center">
+              <div className="w-full h-full bg-[#06090e] rounded-[10px] flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+              </div>
             </div>
+            <span className="text-base sm:text-lg font-black tracking-tight text-white font-mono">
+              Career<span className="text-cyan-400">OS</span>
+            </span>
           </Link>
 
-          {/* Breadcrumb divider and Page Context */}
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 font-mono">
-            <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-            <span className="text-slate-200 font-medium font-sans">
-              {getPageContext()}
+          <div className="hidden md:flex items-center gap-2 text-xs font-medium text-[var(--text-muted)] border-l border-[var(--border-default)] pl-4">
+            <span className="text-[var(--text-dim)] uppercase tracking-wider font-mono text-[10px]">
+              {activePersona === 'faculty' ? 'FACULTY PORTAL' : 'STUDENT CONSOLE'}
             </span>
+            <span>/</span>
+            <span className="text-[var(--text-primary)] font-semibold">{getPageTitle()}</span>
           </div>
         </div>
 
-        {/* Center: Clean Persona Switcher */}
-        <div className="flex items-center bg-[#0d121d] p-0.5 rounded-lg border border-[#1e293b]">
-          <button
-            onClick={() => handlePersonaSwitch('student')}
-            onMouseEnter={() => soundFX.playHover()}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer',
-              activePersona === 'student'
-                ? 'bg-[#161f30] text-cyan-300 border border-[#2e3b52] shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            <GraduationCap className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Student</span>
-            <span className="text-[10px] px-1.5 py-0.2 bg-cyan-950/80 text-cyan-400 rounded font-mono font-bold">
-              {readinessScores.overall}%
-            </span>
-          </button>
-
-          <button
-            onClick={() => handlePersonaSwitch('faculty')}
-            onMouseEnter={() => soundFX.playHover()}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer',
-              activePersona === 'faculty'
-                ? 'bg-[#161f30] text-purple-300 border border-[#2e3b52] shadow-sm font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            <Building2 className="w-3.5 h-3.5 text-purple-400" />
-            <span>Faculty</span>
-            <span className="text-[10px] px-1.5 py-0.2 bg-purple-950/80 text-purple-300 rounded font-mono font-bold">
-              842
-            </span>
-          </button>
-        </div>
-
-        {/* Right side controls */}
-        <div className="flex items-center gap-2.5">
-          {/* Target Role Selector (Student view) */}
+        {/* Center: Target Role Switcher Pill (Students) or Placement Scope (Faculty) */}
+        <div className="hidden lg:flex items-center gap-3">
           {activePersona === 'student' && (
-            <div className="hidden lg:flex items-center gap-1.5 bg-[#0d121d] border border-[#1e293b] px-2.5 py-1 rounded-lg text-xs">
-              <Briefcase className="w-3 h-3 text-cyan-400 shrink-0" />
-              <select
-                aria-label="Target Career Goal"
-                value={activeTargetRole.id}
-                onChange={(e) => {
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
                   soundFX.playClick();
-                  setTargetRole(e.target.value);
+                  setIsRoleDropdownOpen(!isRoleDropdownOpen);
                 }}
-                className="bg-transparent text-xs font-medium text-slate-200 focus:outline-none cursor-pointer"
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[var(--surface-primary)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-all cursor-pointer shadow-sm text-xs"
               >
-                {targetRoles.map(role => (
-                  <option key={role.id} value={role.id} className="bg-[#111724] text-white">
-                    {role.title}
-                  </option>
-                ))}
-              </select>
+                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="text-[var(--text-muted)]">Target:</span>
+                <span className="font-semibold text-[var(--text-primary)]">{activeTargetRole.title}</span>
+                <Badge variant="cyan" className="ml-1 py-0 px-1.5 text-[10px]">
+                  {readinessScores.overall}%
+                </Badge>
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-dim)]" />
+              </button>
+
+              {isRoleDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsRoleDropdownOpen(false)}
+                  />
+                  <div className="absolute top-full mt-2 w-72 p-2 rounded-2xl bg-[var(--surface-primary)] border border-[var(--border-default)] shadow-2xl z-40 space-y-1">
+                    <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-dim)] font-bold">
+                      Switch Placement Target
+                    </div>
+                    {targetRoles.map((role) => (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => {
+                          soundFX.playClick();
+                          setTargetRole(role.id);
+                          setIsRoleDropdownOpen(false);
+                        }}
+                        className={cn(
+                          'w-full flex items-center justify-between p-2.5 rounded-xl text-left text-xs transition-colors cursor-pointer',
+                          activeTargetRole.id === role.id
+                            ? 'bg-cyan-500/10 text-cyan-300 font-semibold'
+                            : 'text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-white'
+                        )}
+                      >
+                        <div className="truncate">
+                          <p className="font-medium truncate">{role.title}</p>
+                          <p className="text-[10px] text-[var(--text-dim)] font-mono">{role.salaryRange}</p>
+                        </div>
+                        {activeTargetRole.id === role.id && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
+        </div>
 
-          {/* AI Career Coach Quick Launcher */}
+        {/* Right Section: Actions, AI Copilot Trigger, Persona Switch, User Profile */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* AI Copilot Button */}
           <button
+            type="button"
             onClick={() => {
               soundFX.playClick();
-              toggleAiCoach(true);
+              toggleAiCoach();
             }}
-            onMouseEnter={() => soundFX.playHover()}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-900/40 hover:border-cyan-400 transition-all text-xs font-semibold cursor-pointer"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500/10 via-indigo-500/10 to-transparent border border-cyan-500/30 hover:border-cyan-400/60 text-cyan-300 hover:text-white transition-all text-xs font-semibold cursor-pointer shadow-sm"
           >
-            <div className="relative">
-              <Bot className="w-3.5 h-3.5 text-cyan-300" />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-            </div>
-            <span className="hidden sm:inline">AI Coach</span>
-          </button>
-
-          {/* Sound FX Toggle */}
-          <button
-            onClick={handleToggleSound}
-            onMouseEnter={() => soundFX.playHover()}
-            className="p-1.5 rounded-lg bg-[#0d121d] hover:bg-[#161f30] border border-[#1e293b] text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer"
-            title={soundActive ? "Audio Feedback: On" : "Audio Feedback: Muted"}
-          >
-            {soundActive ? (
-              <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
-            ) : (
-              <VolumeX className="w-3.5 h-3.5 text-slate-500" />
-            )}
-          </button>
-
-          {/* Reset Demo State Button */}
-          <button
-            onClick={() => {
-              soundFX.playClick();
-              if (confirm('Reset CareerOS demo state back to baseline?')) {
-                resetDemoData();
-                soundFX.playSuccess();
-              }
-            }}
-            onMouseEnter={() => soundFX.playHover()}
-            className="p-1.5 rounded-lg bg-[#0d121d] hover:bg-[#161f30] border border-[#1e293b] text-slate-400 hover:text-white transition-colors cursor-pointer hidden sm:flex items-center gap-1"
-            title="Reset Demo State"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-
-          {/* User Profile Pill */}
-          <Link
-            href={activePersona === 'student' ? '/profile' : '/faculty/dashboard'}
-            onMouseEnter={() => soundFX.playHover()}
-            onClick={() => soundFX.playClick()}
-            className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-lg bg-[#0d121d] border border-[#1e293b] hover:border-[#2e3b52] transition-colors cursor-pointer"
-          >
-            <div className="w-5 h-5 rounded bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center font-bold text-[10px] text-white">
-              {activePersona === 'student' ? 'JS' : 'FD'}
-            </div>
-            <span className="text-xs font-medium text-slate-200 hidden sm:inline leading-none">
-              {activePersona === 'student' ? studentProfile.fullName.split(' ')[0] : 'Placement Dean'}
+            <Bot className="w-4 h-4 text-cyan-400" />
+            <span className="hidden sm:inline">AI Copilot</span>
+            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">
+              ⌘J
             </span>
-          </Link>
+          </button>
+
+          {/* Sound Toggle */}
+          <button
+            type="button"
+            onClick={handleToggleSound}
+            title={soundActive ? 'Mute Interface Sound' : 'Enable Interface Sound'}
+            className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-secondary)] border border-[var(--border-subtle)] transition-colors cursor-pointer"
+          >
+            {soundActive ? <Volume2 className="w-4 h-4 text-cyan-400" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+
+          {/* Persona Switch Toggle */}
+          <div className="flex items-center p-0.5 rounded-xl bg-[var(--surface-primary)] border border-[var(--border-default)]">
+            <button
+              type="button"
+              onClick={() => handlePersonaSwitch('student')}
+              className={cn(
+                'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer',
+                activePersona === 'student'
+                  ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              )}
+            >
+              Student
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePersonaSwitch('faculty')}
+              className={cn(
+                'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer',
+                activePersona === 'faculty'
+                  ? 'bg-indigo-500/20 text-indigo-300 font-semibold'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              )}
+            >
+              Faculty
+            </button>
+          </div>
+
+          {/* User Profile Avatar Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setIsUserMenuOpen(!isUserMenuOpen);
+              }}
+              className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 p-0.5 flex items-center justify-center cursor-pointer shadow-md hover:scale-105 transition-transform"
+            >
+              <div className="w-full h-full bg-[#0e1420] rounded-[10px] flex items-center justify-center text-xs font-bold text-cyan-300 font-mono">
+                {userInitials}
+              </div>
+            </button>
+
+            {isUserMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setIsUserMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-56 p-2 rounded-2xl bg-[var(--surface-primary)] border border-[var(--border-default)] shadow-2xl z-40 space-y-1">
+                  <div className="px-3 py-2 border-b border-[var(--border-subtle)]">
+                    <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+                      {studentProfile.fullName || 'CareerOS User'}
+                    </p>
+                    <p className="text-[10px] text-[var(--text-muted)] truncate font-mono">
+                      {studentProfile.email || 'user@careeros.ai'}
+                    </p>
+                  </div>
+
+                  <Link
+                    href="/profile"
+                    onClick={() => {
+                      soundFX.playClick();
+                      setIsUserMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-secondary)] transition-colors"
+                  >
+                    <User className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Profile & Credentials</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundFX.playClick();
+                      setIsUserMenuOpen(false);
+                      if (confirm('Are you sure you want to sign out?')) {
+                        signOut();
+                      }
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>

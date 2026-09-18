@@ -232,6 +232,16 @@ export class InterviewOrchestrator {
         })
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (res.status === 403 || errData.code === 'consent_required') {
+          this.destroy();
+          this.callbacks.onError(errData.reason || 'Interview blocked: Required consent is missing or withdrawn.');
+          return;
+        }
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+
       const data: TurnEvaluationResult = await res.json();
       const thinkingEnd = Date.now();
       this.lastThinkingLatencyMs = thinkingEnd - thinkingStart;

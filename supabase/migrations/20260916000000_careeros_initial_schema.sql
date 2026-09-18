@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS public.target_roles (
 
 -- 4. Student Skills Table
 CREATE TABLE IF NOT EXISTS public.student_skills (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   category TEXT NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS public.roadmap_tasks (
 
 -- 6. Technical Interview Evaluations Table
 CREATE TABLE IF NOT EXISTS public.technical_evaluations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   question_id TEXT NOT NULL,
   problem_title TEXT NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS public.technical_evaluations (
 
 -- 7. HR Interview Evaluations Table
 CREATE TABLE IF NOT EXISTS public.hr_evaluations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   question_id TEXT NOT NULL,
   question_text TEXT NOT NULL,
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS public.hr_evaluations (
 
 -- 8. Communication Metrics Table
 CREATE TABLE IF NOT EXISTS public.communication_metrics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   duration_seconds INTEGER NOT NULL,
   words_per_minute INTEGER NOT NULL,
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS public.communication_metrics (
 
 -- 9. Aptitude Assessment Sessions Table
 CREATE TABLE IF NOT EXISTS public.aptitude_sessions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   total_questions INTEGER NOT NULL,
   correct_answers INTEGER NOT NULL,
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS public.aptitude_sessions (
 
 -- 10. Career Events Log Table
 CREATE TABLE IF NOT EXISTS public.career_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS public.career_events (
 
 -- 11. Readiness Scores Table (Historical Tracking)
 CREATE TABLE IF NOT EXISTS public.readiness_scores (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   overall INTEGER NOT NULL,
   technical INTEGER NOT NULL,
@@ -423,3 +423,4 @@ ON CONFLICT (id) DO UPDATE SET
   aptitude_areas = EXCLUDED.aptitude_areas,
   communication_expectations = EXCLUDED.communication_expectations,
   required_skills = EXCLUDED.required_skills;
+

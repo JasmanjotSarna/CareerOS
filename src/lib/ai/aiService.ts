@@ -6,6 +6,7 @@ import {
   RoadmapWeek,
   RoadmapTask,
   ResumeData,
+  ExtractedSkill,
   TechnicalInterviewQuestion,
   TechnicalInterviewEvaluation,
   HRInterviewQuestion,
@@ -47,82 +48,85 @@ export class AIService {
   }
 
   /**
-   * 1. Extracts skills from raw text or parsed resume
+   * 1. Extracts skills from raw text or parsed resume using real LLM
    */
-  static extractSkills(text: string): string[] {
-    const knownKeywords = [
-      'Python', 'Java', 'C++', 'JavaScript', 'TypeScript', 'SQL', 'PostgreSQL', 'MySQL',
-      'Data Structures', 'Algorithms', 'FastAPI', 'React', 'Node.js', 'Docker', 'Kubernetes',
-      'Git', 'System Design', 'REST APIs', 'Pandas', 'NumPy', 'PyTorch', 'Machine Learning',
-      'Operating Systems', 'OOP', 'Object-Oriented Design', 'Redis', 'Kafka', 'AWS'
-    ];
-    const lower = text.toLowerCase();
-    return knownKeywords.filter(kw => lower.includes(kw.toLowerCase()));
+  static async extractSkills(text: string): Promise<ExtractedSkill[]> {
+    if (typeof window === 'undefined' || !text || text.trim().length < 20) {
+      return this.extractSkillsSync(text);
+    }
+    try {
+      const res = await fetch('/api/ai/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'extractSkills', resumeText: text })
+      });
+      if (!res.ok) {
+        return this.extractSkillsSync(text);
+      }
+      const data = await res.json();
+      return (data.skills as ExtractedSkill[]) || this.extractSkillsSync(text);
+    } catch {
+      return this.extractSkillsSync(text);
+    }
   }
 
   /**
-   * 2. Analyzes uploaded resume text against target role
+   * Synchronous fallback skill extractor
    */
-  static async analyzeResume(resumeText: string, targetRole: TargetRole): Promise<ResumeData> {
-    const fallback = (): ResumeData => {
-      const extracted = this.extractSkills(resumeText || 'Python SQL Data Structures Git REST APIs FastAPI Pandas Docker');
-      const requiredNames = targetRole.requiredSkills.map(s => s.name);
-      const missingKeywords = requiredNames.filter(r => !extracted.includes(r)).slice(0, 4);
-      const matchedCount = requiredNames.filter(r => extracted.includes(r)).length;
-      const keywordMatch = Math.round((matchedCount / Math.max(1, requiredNames.length)) * 100);
-      const atsScore = Math.min(96, Math.max(55, Math.round(keywordMatch * 0.45 + 68 * 0.25 + 91 * 0.2 + 79 * 0.1)));
+  static extractSkillsSync(text: string): ExtractedSkill[] {
+    const knownKeywords: Array<{ name: string; category: string }> = [
+      { name: 'Python', category: 'Programming' },
+      { name: 'Java', category: 'Programming' },
+      { name: 'C++', category: 'Programming' },
+      { name: 'JavaScript', category: 'Programming' },
+      { name: 'TypeScript', category: 'Programming' },
+      { name: 'SQL', category: 'Data' },
+      { name: 'PostgreSQL', category: 'Data' },
+      { name: 'MySQL', category: 'Data' },
+      { name: 'FastAPI', category: 'Backend' },
+      { name: 'React', category: 'Frontend' },
+      { name: 'Node.js', category: 'Backend' },
+      { name: 'Docker', category: 'Backend' },
+      { name: 'Kubernetes', category: 'Backend' },
+      { name: 'Git', category: 'Programming' },
+      { name: 'System Design', category: 'Backend' },
+      { name: 'REST APIs', category: 'Backend' },
+      { name: 'Pandas', category: 'Data' },
+      { name: 'NumPy', category: 'Data' },
+      { name: 'PyTorch', category: 'AI/ML' },
+      { name: 'Machine Learning', category: 'AI/ML' },
+      { name: 'Operating Systems', category: 'CS Fundamentals' },
+      { name: 'OOP', category: 'CS Fundamentals' },
+      { name: 'Redis', category: 'Backend' },
+      { name: 'Kafka', category: 'Backend' },
+      { name: 'AWS', category: 'Backend' }
+    ];
+    const lower = (text || '').toLowerCase();
+    return knownKeywords
+      .filter(kw => lower.includes(kw.name.toLowerCase()))
+      .map(kw => ({ name: kw.name, confidence: 0.85, category: kw.category }));
+  }
 
-      return {
-        fileName: 'Jasmanjot_Singh_Resume_2026.pdf',
-        uploadedAt: new Date().toISOString(),
-        atsScore,
-        scores: {
-          keywordMatch,
-          impactStatements: 68,
-          formatting: 91,
-          roleAlignment: 79,
-        },
-        parsedSkills: extracted.length > 0 ? extracted : ['Python', 'SQL', 'Data Structures', 'Git', 'REST APIs', 'FastAPI'],
-        extractedProjects: [
-          {
-            title: 'Order Processing Microservice',
-            description: 'Engineered high-throughput RESTful API backend handling 1,200 req/sec with PostgreSQL connection pooling.',
-            technologies: ['FastAPI', 'PostgreSQL', 'Docker', 'Redis']
-          },
-          {
-            title: 'Campus Placement Telemetry Model',
-            description: 'Engineered collaborative filtering recommendation model predicting student placement fit with 89% precision.',
-            technologies: ['PyTorch', 'Python', 'Pandas', 'Scikit-Learn']
-          }
-        ],
-        missingKeywords: missingKeywords.length > 0 ? missingKeywords : ['System Design', 'SQL Indexing', 'Kafka'],
-        suggestedImprovements: [
-          {
-            id: 'imp-1',
-            section: 'Projects: Order Processing',
-            original: 'Built a backend service in Python and PostgreSQL for order processing.',
-            improved: 'Architected high-throughput REST API using FastAPI and PostgreSQL with indexing, reducing order processing latency by 38% under 1,500 concurrent requests.',
-            explanation: 'Replaced passive phrasing with quantified business impact and specific concurrency metrics.',
-            applied: false
-          },
-          {
-            id: 'imp-2',
-            section: 'Technical Skills: Databases',
-            original: 'Familiar with SQL databases and querying tables.',
-            improved: 'Proficient in PostgreSQL, advanced window functions, complex multi-table joins, and query plan optimization (EXPLAIN ANALYZE).',
-            explanation: 'Explicitly targets recruiter search keywords for SDE-1 backend roles.',
-            applied: false
-          }
-        ],
-        summaryFeedback: `Resume aligns well with ${targetRole.title} foundational requirements. Quantifying engineering impact statements and incorporating missing keywords will raise ATS matching score past 85%.`
-      };
-    };
+  /**
+   * 2. Analyzes uploaded resume text against target role using real LLM
+   */
+  static async analyzeResume(resumeText: string, targetRole: TargetRole, fileName?: string): Promise<ResumeData> {
+    if (typeof window === 'undefined') {
+      throw new Error('Resume analysis must be invoked client-side or via server API.');
+    }
 
-    return this.postApi<ResumeData>(
-      '/api/ai/resume',
-      { action: 'analyzeResume', resumeText, targetRole },
-      fallback
-    );
+    const res = await fetch('/api/ai/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'analyzeResume', resumeText, targetRole, fileName })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || errData.error || `Resume analysis failed (HTTP ${res.status}). Please try again.`);
+    }
+
+    return (await res.json()) as ResumeData;
   }
 
   /**
@@ -142,14 +146,39 @@ export class AIService {
   }
 
   /**
-   * 4. Calculates comprehensive Job Suitability
+   * 4. Calculates comprehensive Job Suitability using semantic AI equivalence
    */
-  static calculateJobSuitability(
+  static async calculateJobSuitability(
+    profile: StudentProfile,
+    targetRole: TargetRole
+  ): Promise<SuitabilityAnalysis> {
+    if (typeof window === 'undefined') {
+      return this.calculateJobSuitabilitySync(profile, targetRole);
+    }
+    try {
+      const res = await fetch('/api/ai/suitability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'suitability', profile, targetRole })
+      });
+      if (!res.ok) {
+        return this.calculateJobSuitabilitySync(profile, targetRole);
+      }
+      return (await res.json()) as SuitabilityAnalysis;
+    } catch {
+      return this.calculateJobSuitabilitySync(profile, targetRole);
+    }
+  }
+
+  /**
+   * Synchronous baseline suitability calculation
+   */
+  static calculateJobSuitabilitySync(
     profile: StudentProfile,
     targetRole: TargetRole
   ): SuitabilityAnalysis {
     const studentSkillMap = new Map(
-      profile.skills.map(s => [s.name.toLowerCase(), s.currentProficiency])
+      profile.skills.map(s => [s.name.toLowerCase().replace(/\.js$/, ''), s.currentProficiency])
     );
 
     let matchCount = 0;
@@ -158,7 +187,8 @@ export class AIService {
     const criticalGaps: string[] = [];
 
     for (const req of targetRole.requiredSkills) {
-      const current = studentSkillMap.get(req.name.toLowerCase()) || 0;
+      const cleanReq = req.name.toLowerCase().replace(/\.js$/, '');
+      const current = studentSkillMap.get(cleanReq) || 0;
       if (current >= req.requiredProficiency * 0.75) {
         strongMatches.push(req.name);
         matchCount++;
@@ -189,23 +219,52 @@ export class AIService {
       strongMatches,
       missingSkills,
       criticalGaps,
-      aiSummary: `Your current profile aligns strongly with ${targetRole.title}, matching ${strongMatches.length} of ${targetRole.requiredSkills.length} key competencies. Your largest gaps are in ${criticalGaps.slice(0, 2).join(' and ')}.`,
-      improvementTip: `Mastering multi-table SQL joins and fundamental system design concepts will elevate your match from ${overallMatch}% to 88%+.`
+      aiSummary: `Your profile demonstrates alignment with ${targetRole.title}, meeting ${strongMatches.length} of ${targetRole.requiredSkills.length} target competencies.`,
+      improvementTip: `Targeting your critical gaps in ${criticalGaps.slice(0, 2).join(' and ') || 'core fundamentals'} will boost your placement match above 85%.`
     };
   }
 
   /**
-   * 5. Identifies granular skill gaps
+   * 5. Identifies granular skill gaps using semantic AI
    */
-  static identifySkillGaps(
+  static async identifySkillGaps(
+    profile: StudentProfile,
+    targetRole: TargetRole
+  ): Promise<SkillGap[]> {
+    if (typeof window === 'undefined') {
+      return this.identifySkillGapsSync(profile, targetRole);
+    }
+    try {
+      const res = await fetch('/api/ai/suitability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'skillGaps', profile, targetRole })
+      });
+      if (!res.ok) {
+        return this.identifySkillGapsSync(profile, targetRole);
+      }
+      const data = await res.json();
+      return (data.gaps as SkillGap[]) || this.identifySkillGapsSync(profile, targetRole);
+    } catch {
+      return this.identifySkillGapsSync(profile, targetRole);
+    }
+  }
+
+  /**
+   * Synchronous baseline skill gaps identification
+   */
+  static identifySkillGapsSync(
     profile: StudentProfile,
     targetRole: TargetRole
   ): SkillGap[] {
-    const studentMap = new Map(profile.skills.map(s => [s.name.toLowerCase(), s]));
+    const studentMap = new Map(
+      profile.skills.map(s => [s.name.toLowerCase().replace(/\.js$/, ''), s])
+    );
     const gaps: SkillGap[] = [];
 
     for (const req of targetRole.requiredSkills) {
-      const studentSkill = studentMap.get(req.name.toLowerCase());
+      const cleanReq = req.name.toLowerCase().replace(/\.js$/, '');
+      const studentSkill = studentMap.get(cleanReq);
       const currentLevel = studentSkill ? studentSkill.currentProficiency : 20;
       const gap = Math.max(0, req.requiredProficiency - currentLevel);
 
@@ -224,10 +283,10 @@ export class AIService {
         reason: priority === 'Critical' 
           ? `Non-negotiable requirement for ${targetRole.title} round 1 screening.`
           : priority === 'High'
-          ? `Frequently tested in SDE-1 coding and technical architecture interviews.`
-          : `Good-to-have skill that boosts overall candidate ranking.`,
+          ? `Frequently tested in ${targetRole.title} technical rounds.`
+          : `Recommended competency that improves composite candidate ranking.`,
         recommendedAction: priority === 'Critical'
-          ? `Complete Week 1 practice lab and solve 5 targeted problems.`
+          ? `Complete Week 1 practice lab and solve targeted problem sets.`
           : priority === 'High'
           ? `Schedule mock interview drill within 7 days.`
           : `Review documentation and integrate into next project.`

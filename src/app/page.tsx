@@ -1,72 +1,40 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, 
   Sparkles, 
-  Terminal, 
   Code2, 
   Mic, 
   Target, 
-  Layers, 
-  CheckCircle2, 
-  TrendingUp, 
   ShieldCheck, 
   Building2, 
   GraduationCap, 
   Users2, 
-  Play, 
   Bot,
   Flame,
-  ArrowUpRight
+  CheckCircle2,
+  FileCheck,
+  TrendingUp,
+  Brain,
+  Terminal
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
-import { CareerButton } from '@/components/ui/CareerButton';
-import { MetricDisplay } from '@/components/ui/MetricDisplay';
-import { AIOrb } from '@/components/ui/AIOrb';
-import { GlowCard } from '@/components/ui/GlowCard';
-import { CareerTrajectory } from '@/components/ui/CareerTrajectory';
-import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import { Button } from '@/components/ui/Button';
+import { Card, GlowCard } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { StatMetric } from '@/components/ui/StatMetric';
+import { ProgressRing } from '@/components/ui/ProgressRing';
+import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
+import { HighlightGrid, SpotlightCard } from '@/components/ui/HighlightGrid';
+import { HaikeiHeroMesh, HaikeiWaveDivider } from '@/components/visuals/HaikeiBackgrounds';
 import { soundFX } from '@/components/effects/SoundFX';
 
 export default function LandingPage() {
-  const { setPersona, targetRoles } = useApp();
-  const prefersReduced = usePrefersReducedMotion();
-
-  // Scroll tracking for decoupled trajectory stages
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ['start start', 'end end']
-  });
-
-  // Stages in the Lusion-inspired trajectory
-  const stages = [
-    { id: 'profile', label: 'Profile Ingestion', metric: '100%', detail: 'Autonomous academic transcript & GitHub parse' },
-    { id: 'skills', label: 'Skill Matrix', metric: '82%', detail: 'Granular diagnosis against target role benchmarks' },
-    { id: 'roadmap', label: 'Adaptive Roadmap', metric: 'Week 2', detail: 'Personalized sprint sequence closing critical gaps' },
-    { id: 'interview', label: 'AI Mock Interviews', metric: 'O(N)', detail: 'Live conversational coding & STAR behavioral feedback' },
-    { id: 'readiness', label: 'Placement Gate', metric: '78%', detail: 'Deterministic multi-dimensional readiness score' },
-    { id: 'placement', label: 'Recruiter Dispatch', metric: 'Tier 1', detail: 'High-confidence campus placement allocation' },
-  ];
-
-  const [activeStageIndex, setActiveStageIndex] = useState(0);
-
-  // Interactive Live Teaser state
-  const [activeTeaser, setActiveTeaser] = useState<'suitability' | 'coding' | 'speaking'>('suitability');
-  const [codeRunSuccess, setCodeRunSuccess] = useState(false);
-
-  const handleRunCode = () => {
-    soundFX.playClick();
-    setCodeRunSuccess(false);
-    setTimeout(() => {
-      soundFX.playSuccess();
-      setCodeRunSuccess(true);
-    }, 600);
-  };
+  const { setPersona } = useApp();
+  const [activeInteractiveTab, setActiveInteractiveTab] = useState<'suitability' | 'coding' | 'resume'>('suitability');
 
   const handleLaunchStudent = () => {
     soundFX.playClick();
@@ -78,435 +46,376 @@ export default function LandingPage() {
     setPersona('faculty');
   };
 
-  return (
-    <div ref={containerRef} className="relative min-h-screen bg-[#070A0F] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200 overflow-x-hidden">
-      {/* Decoupled Ambient Background Gradient Layer */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-gradient-to-b from-cyan-500/10 via-violet-500/5 to-transparent blur-[140px]" />
-        <div className="absolute top-[40%] right-[-10%] w-[500px] h-[500px] rounded-full bg-violet-600/5 blur-[160px]" />
-        <div className="absolute bottom-[10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-600/5 blur-[160px]" />
-      </div>
+  const stages = [
+    { number: '01', title: 'Vector Ingestion', desc: 'Autonomous transcript, GitHub repository & ATS resume synthesis.' },
+    { number: '02', title: 'Competency Diagnosis', desc: 'Granular skill gap analysis against top tech hiring rubrics.' },
+    { number: '03', title: 'Adaptive Sprint Roadmap', desc: 'Personalized weekly milestones closing high-priority technical gaps.' },
+    { number: '04', title: 'Live AI Mock Interviews', desc: 'Continuous O(N) technical coding and STAR behavioral drills.' },
+    { number: '05', title: 'Deterministic Readiness Gate', desc: '78%+ verified multi-dimensional score guaranteeing placement readiness.' }
+  ];
 
-      {/* Top Header Navigation */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#070A0F]/70 border-b border-white/[0.06]">
+  return (
+    <div className="relative min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] selection:bg-cyan-500/30 selection:text-cyan-200 overflow-x-hidden">
+      {/* Haikei Background Organic Mesh */}
+      <HaikeiHeroMesh />
+
+      {/* Global Header Navigation */}
+      <header className="sticky top-0 z-50 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-cyan-950/40 border border-cyan-500/30">
-              <Image 
-                src="/careeros-logo.png" 
-                alt="CareerOS Logo" 
-                width={28} 
-                height={28} 
-                className="object-contain"
-                priority
-              />
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 p-0.5 flex items-center justify-center shadow-md shadow-cyan-500/20">
+              <div className="w-full h-full bg-[#06090e] rounded-[10px] flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+              </div>
             </div>
             <span className="font-mono text-base font-extrabold tracking-tight text-white">
               Career<span className="text-cyan-400">OS</span>
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-xs font-mono tracking-wider text-slate-400">
+          <nav className="hidden md:flex items-center gap-8 text-xs font-mono tracking-wider text-[var(--text-muted)]">
+            <a href="#features" className="hover:text-cyan-300 transition-colors">CAPABILITIES</a>
+            <a href="#interactive" className="hover:text-cyan-300 transition-colors">LIVE STUDIO</a>
             <a href="#trajectory" className="hover:text-cyan-300 transition-colors">TRAJECTORY</a>
-            <a href="#architecture" className="hover:text-cyan-300 transition-colors">INTELLIGENCE</a>
-            <a href="#interactive" className="hover:text-cyan-300 transition-colors">STUDIO</a>
-            <a href="#faculty" className="hover:text-cyan-300 transition-colors">FACULTY</a>
+            <a href="#faculty" className="hover:text-cyan-300 transition-colors">FACULTY PORTAL</a>
           </nav>
 
           <div className="flex items-center gap-3">
             <Link href="/login" onClick={handleLaunchFaculty}>
-              <span className="text-xs font-mono text-slate-400 hover:text-white px-3 py-1.5 transition-colors hidden sm:inline-block">
-                Faculty Portal
+              <span className="text-xs font-mono text-[var(--text-muted)] hover:text-white px-3 py-1.5 transition-colors hidden sm:inline-block">
+                Dean & Faculty
               </span>
             </Link>
             <Link href="/login" onClick={handleLaunchStudent}>
-              <CareerButton variant="primary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                Launch App
-              </CareerButton>
+              <Button variant="secondary" size="sm">
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/signup" onClick={handleLaunchStudent}>
+              <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                Get Started
+              </Button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* 1. CINEMATIC HERO: Lusion Trajectory + Apple Restraint */}
-      <section className="relative pt-36 pb-24 px-6 max-w-7xl mx-auto flex flex-col items-center text-center z-10">
-        {/* Subtle Badge */}
-        <motion.div 
-          initial={{ opacity: 0, y: 12 }}
+      {/* Hero Section */}
+      <section className="relative pt-20 pb-28 px-6 text-center max-w-5xl mx-auto z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-mono tracking-widest uppercase mb-8"
+          transition={{ duration: 0.5 }}
+          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-mono mb-8 shadow-sm"
         >
-          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-          <span>The Intelligence Layer Between Students & Employment</span>
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          <span>AUTONOMOUS CAREER READINESS & PLACEMENT ENGINE</span>
         </motion.div>
 
-        {/* Hero Title with Generous Scale */}
-        <motion.h1 
+        <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.1 }}
-          className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter text-white max-w-5xl leading-[0.95]"
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white leading-[1.08]"
         >
-          From Student to <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-violet-400 to-amber-300">
-            Job-Ready.
-          </span>
+          From University Student to{' '}
+          <span className="gradient-text-accent">High-Growth Job Ready.</span>
         </motion.h1>
 
-        <motion.p 
-          initial={{ opacity: 0, y: 16 }}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-8 text-base sm:text-lg md:text-xl text-slate-400 max-w-2xl font-normal leading-relaxed"
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mt-6 text-base sm:text-xl text-[var(--text-muted)] max-w-3xl mx-auto leading-relaxed"
         >
-          Continuous career readiness powered by real-time AI interviews, deterministic gap diagnostics, and adaptive learning trajectories.
+          CareerOS is the intelligence layer between university engineering and elite employment — continuously calculating role fit, closing skill deficits, optimizing resumes, and running live AI interview simulations.
         </motion.p>
 
-        {/* Hero CTAs */}
-        <motion.div 
-          initial={{ opacity: 0, y: 16 }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="mt-10 flex flex-wrap items-center justify-center gap-4"
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
         >
-          <Link href="/dashboard" onClick={handleLaunchStudent}>
-            <CareerButton variant="primary" size="lg" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              Get Job-Ready
-            </CareerButton>
+          <Link href="/signup" onClick={handleLaunchStudent}>
+            <Button variant="primary" size="lg" rightIcon={<ArrowRight className="w-4 h-4" />}>
+              Launch Career Trajectory
+            </Button>
           </Link>
-          <a href="#trajectory">
-            <CareerButton variant="secondary" size="lg">
-              Explore Trajectory
-            </CareerButton>
-          </a>
+          <Link href="/faculty/dashboard" onClick={handleLaunchFaculty}>
+            <Button variant="secondary" size="lg" leftIcon={<Building2 className="w-4 h-4 text-indigo-400" />}>
+              Placement Director Console
+            </Button>
+          </Link>
         </motion.div>
 
-        {/* Hero Central Trajectory Visual (The Signature Line) */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.4 }}
-          className="w-full mt-16 max-w-4xl"
+        {/* Floating Key Metrics Showcase */}
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto"
         >
-          <GlowCard className="p-6 md:p-8 backdrop-blur-xl bg-[#0B0F16]/90">
-            <div className="flex items-center justify-between pb-6 border-b border-white/[0.08]">
-              <div className="flex items-center gap-3 text-left">
-                <AIOrb size={42} state="idle" readinessTrend={8} />
-                <div>
-                  <h4 className="text-sm font-bold text-white font-mono">Autonomous Career Trajectory</h4>
-                  <p className="text-xs text-slate-400">Target Role: Software Engineer — SDE-1</p>
-                </div>
-              </div>
-              <MetricDisplay value={78} suffix="%" label="Overall Readiness" size="sm" highlight="cyan" />
+          <SpotlightCard className="text-center p-5">
+            <div className="text-2xl sm:text-3xl font-black font-mono text-cyan-400">
+              <AnimatedCounter value={78} suffix="%+" />
             </div>
-
-            <div className="pt-4">
-              <CareerTrajectory progress={78} variant="horizontal" onSelectWaypoint={(id) => {
-                const idx = stages.findIndex(s => s.id === id);
-                if (idx !== -1) setActiveStageIndex(idx);
-              }} />
+            <div className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">Placement Gate Standard</div>
+          </SpotlightCard>
+          <SpotlightCard className="text-center p-5">
+            <div className="text-2xl sm:text-3xl font-black font-mono text-indigo-400">
+              <AnimatedCounter value={4.2} decimals={1} suffix="x" />
             </div>
-          </GlowCard>
+            <div className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">Faster Interview Callback</div>
+          </SpotlightCard>
+          <SpotlightCard className="text-center p-5">
+            <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400">
+              <AnimatedCounter value={92} suffix="%" />
+            </div>
+            <div className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">ATS Keyword Alignment</div>
+          </SpotlightCard>
+          <SpotlightCard className="text-center p-5">
+            <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400">
+              <AnimatedCounter value={100} suffix="%" />
+            </div>
+            <div className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">Deterministic Scoring</div>
+          </SpotlightCard>
         </motion.div>
       </section>
 
-      {/* 2. TRAJECTORY STAGES (Lusion Storytelling: Profile -> Placement) */}
-      <section id="trajectory" className="py-24 px-6 max-w-7xl mx-auto relative z-10">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-xs font-mono text-cyan-400 tracking-widest uppercase">The Evolution</span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-2">
-            One Single Trajectory. Six Deterministic Gates.
+      {/* Interactive Studio Preview Section */}
+      <section id="interactive" className="py-20 px-6 max-w-6xl mx-auto relative z-10">
+        <div className="text-center mb-12">
+          <Badge variant="cyan" pulse className="mb-3">
+            INTERACTIVE CAPABILITIES
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            The Autonomous Readiness Suite
           </h2>
-          <p className="text-sm text-slate-400 mt-3">
-            Unlike disjointed placement portals, CareerOS connects every practice drill and interview response into a unified readiness loop.
+          <p className="text-sm text-[var(--text-muted)] mt-2 max-w-xl mx-auto">
+            Experience how CareerOS accelerates student readiness with instant feedback loops.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {stages.map((stage, i) => (
-            <GlowCard 
-              key={stage.id} 
-              className="p-6 transition-all duration-300 hover:border-cyan-500/40"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-mono text-slate-500">STAGE 0{i + 1}</span>
-                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-white/[0.06] text-cyan-300 border border-white/[0.08]">
-                  {stage.metric}
-                </span>
-              </div>
-              <h3 className="text-base font-bold text-white font-mono mb-2">{stage.label}</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">{stage.detail}</p>
-            </GlowCard>
-          ))}
-        </div>
-      </section>
-
-      {/* 3. INTERACTIVE STUDIO DEMO (Apple Presentation + Active Theory Restraint) */}
-      <section id="interactive" className="py-24 px-6 max-w-7xl mx-auto relative z-10 border-t border-white/[0.06]">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-          <div>
-            <span className="text-xs font-mono text-violet-400 tracking-widest uppercase">Studio Environment</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-2">
-              Experience the Intelligence Layer
-            </h2>
-            <p className="text-sm text-slate-400 mt-2 max-w-xl">
-              Preview real-time job suitability analysis, technical interview code diagnostics, and speaking lab metrics.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 p-1 rounded-xl bg-slate-900 border border-white/[0.08] self-start">
+        {/* Interactive Tab Switcher */}
+        <div className="flex justify-center mb-8">
+          <div className="p-1 rounded-2xl bg-[var(--surface-primary)] border border-[var(--border-default)] flex gap-2">
             <button
-              onClick={() => setActiveTeaser('suitability')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                activeTeaser === 'suitability' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setActiveInteractiveTab('suitability');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                activeInteractiveTab === 'suitability'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-white'
               }`}
             >
-              Job Suitability
+              Role Suitability Vector
             </button>
             <button
-              onClick={() => setActiveTeaser('coding')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                activeTeaser === 'coding' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setActiveInteractiveTab('coding');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                activeInteractiveTab === 'coding'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-white'
               }`}
             >
-              AI Live Coding
+              Live AI Coding Studio
             </button>
             <button
-              onClick={() => setActiveTeaser('speaking')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                activeTeaser === 'speaking' ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+              type="button"
+              onClick={() => {
+                soundFX.playClick();
+                setActiveInteractiveTab('resume');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                activeInteractiveTab === 'resume'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-white'
               }`}
             >
-              Speaking Lab
+              ATS Resume Rewriter
             </button>
           </div>
         </div>
 
-        <GlowCard className="p-8 md:p-10 bg-[#0B0F16]/95 border border-white/[0.12]">
-          {activeTeaser === 'suitability' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-4">
-                <MetricDisplay value={82} suffix="%" label="Target Role Match" sublabel="Software Engineer — SDE-1" highlight="cyan" size="lg" trend={4} />
-                <p className="text-xs text-slate-400 mt-4 leading-relaxed">
-                  Benchmarked against 4,200+ campus hiring rounds. High alignment in core Python and system foundations; critical gap identified in multi-table SQL queries.
-                </p>
-                <div className="mt-6 flex flex-col gap-2">
-                  <div className="flex justify-between text-xs font-mono">
-                    <span className="text-slate-400">Skills Alignment</span>
-                    <span className="text-cyan-300 font-bold">85%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-cyan-400 rounded-full w-[85%]" />
+        {/* Interactive Display Card */}
+        <Card className="p-8 bg-[var(--surface-primary)]/90 border border-[var(--border-default)] shadow-2xl">
+          <AnimatePresence mode="wait">
+            {activeInteractiveTab === 'suitability' && (
+              <motion.div
+                key="suitability"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center"
+              >
+                <div className="md:col-span-5 text-center md:text-left space-y-4">
+                  <Badge variant="cyan">Multi-Vector Alignment</Badge>
+                  <h3 className="text-2xl font-bold text-white">
+                    Software Engineer — SDE-1
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[var(--text-muted)] leading-relaxed">
+                    Evaluated across 5 key dimensions against 840+ successful campus hiring rubrics.
+                  </p>
+                  <div className="pt-2">
+                    <Link href="/suitability" onClick={handleLaunchStudent}>
+                      <Button variant="primary" size="md">
+                        Explore Suitability Details
+                      </Button>
+                    </Link>
                   </div>
                 </div>
-              </div>
 
-              <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-900/80 border border-emerald-500/30">
-                  <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono font-bold mb-2">
+                <div className="md:col-span-7 space-y-3">
+                  {[
+                    { label: 'Technical Proficiency (Algorithms & Backend)', score: 78, color: 'from-cyan-500 to-blue-500' },
+                    { label: 'Project Depth & Production Complexity', score: 85, color: 'from-indigo-500 to-purple-500' },
+                    { label: 'Academic & CS Fundamentals (OS, DBMS, CN)', score: 90, color: 'from-emerald-500 to-teal-500' },
+                    { label: 'ATS Resume Keyword Matching', score: 72, color: 'from-amber-500 to-orange-500' },
+                  ].map((dim, i) => (
+                    <div key={i} className="p-3 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)]">
+                      <div className="flex justify-between text-xs font-semibold mb-1.5">
+                        <span className="text-[var(--text-secondary)]">{dim.label}</span>
+                        <span className="font-mono text-white">{dim.score}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-[var(--surface-tertiary)] rounded-full overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${dim.color} rounded-full`}
+                          style={{ width: `${dim.score}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {activeInteractiveTab === 'coding' && (
+              <motion.div
+                key="coding"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs font-mono font-bold text-white">Live Coding Terminal — Two Sum II</span>
+                  </div>
+                  <Badge variant="momentum">O(N) Time Complexity Target</Badge>
+                </div>
+                <div className="p-4 rounded-xl bg-[#090d16] font-mono text-xs text-slate-300 border border-[var(--border-subtle)] overflow-x-auto">
+                  <pre>{`def two_sum_sorted(numbers: list[int], target: int) -> list[int]:
+    left, right = 0, len(numbers) - 1
+    while left < right:
+        current_sum = numbers[left] + numbers[right]
+        if current_sum == target:
+            return [left + 1, right + 1]
+        elif current_sum < target:
+            left += 1
+        else:
+            right -= 1
+    return []`}</pre>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-xs text-emerald-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Verified Competencies (4)</span>
-                  </div>
-                  <ul className="text-xs text-slate-300 space-y-1.5">
-                    <li>• Python Algorithms (85% proficiency)</li>
-                    <li>• Data Structures & Complexity (82%)</li>
-                    <li>• RESTful API Microservices (80%)</li>
-                    <li>• Git Version Control & CI/CD (88%)</li>
-                  </ul>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-900/80 border border-amber-500/30">
-                  <div className="flex items-center gap-2 text-amber-400 text-xs font-mono font-bold mb-2">
-                    <Target className="w-4 h-4" />
-                    <span>Priority Skill Gaps (2)</span>
-                  </div>
-                  <ul className="text-xs text-slate-300 space-y-1.5">
-                    <li>• Multi-Table SQL Joins & Window Functions (Critical, -25%)</li>
-                    <li>• System Design Caching & Redis (High, -18%)</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTeaser === 'coding' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-mono text-white font-bold">First Duplicate Element in an Array</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-                    O(N) Time
+                    Passed all 14 test cases in 12ms
                   </span>
-                  <CareerButton variant="primary" size="sm" onClick={handleRunCode} leftIcon={<Play className="w-3 h-3" />}>
-                    Execute Test
-                  </CareerButton>
+                  <Link href="/interviews/technical" onClick={handleLaunchStudent}>
+                    <Button variant="primary" size="sm">
+                      Start Full AI Interview
+                    </Button>
+                  </Link>
                 </div>
-              </div>
+              </motion.div>
+            )}
 
-              <pre className="p-4 rounded-xl bg-slate-950 font-mono text-xs text-cyan-200 overflow-x-auto border border-white/[0.06] leading-relaxed">
-{`def first_duplicate(nums: list[int]) -> int:
-    seen = set()
-    for num in nums:
-        if num in seen:
-            return num
-        seen.add(num)
-    return -1`}
-              </pre>
+            {activeInteractiveTab === 'resume' && (
+              <motion.div
+                key="resume"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs font-mono font-bold text-white">ATS Bullet Optimization</span>
+                  </div>
+                  <span className="text-xs font-mono text-emerald-400 font-bold">+18% ATS Score Lift</span>
+                </div>
 
-              {codeRunSuccess && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono flex items-center justify-between"
-                >
-                  <span>✓ 5/5 Test Cases Passed in 14ms (Optimal Time & Space Complexity)</span>
-                  <span className="font-bold">+4 Readiness Points Earned</span>
-                </motion.div>
-              )}
-            </div>
-          )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 text-xs text-red-200">
+                    <p className="font-mono text-[10px] text-red-400 uppercase font-bold mb-1">Before (Vague)</p>
+                    <p>"Built backend services for the web application and fixed database bugs."</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs text-emerald-200">
+                    <p className="font-mono text-[10px] text-emerald-400 uppercase font-bold mb-1">After (Quantified Impact)</p>
+                    <p>"Architected modular FastAPI backend services with Redis caching, boosting endpoint throughput by 34%."</p>
+                  </div>
+                </div>
 
-          {activeTeaser === 'speaking' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-              <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-900/60 border border-white/[0.08]">
-                <Mic className="w-8 h-8 text-cyan-400 mb-3 animate-pulse" />
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">Speaking Cadence</span>
-                <span className="text-3xl font-extrabold text-white font-mono mt-1">134 WPM</span>
-                <span className="text-[11px] text-emerald-400 mt-1">Optimal Range (125-150)</span>
-              </div>
-
-              <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-900/60 border border-white/[0.08]">
-                <Flame className="w-8 h-8 text-amber-400 mb-3" />
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">Filler Word Rate</span>
-                <span className="text-3xl font-extrabold text-amber-400 font-mono mt-1">2.1%</span>
-                <span className="text-[11px] text-slate-400 mt-1">3 fillers in 90 seconds</span>
-              </div>
-
-              <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-900/60 border border-white/[0.08]">
-                <ShieldCheck className="w-8 h-8 text-violet-400 mb-3" />
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">Clarity Score</span>
-                <span className="text-3xl font-extrabold text-violet-400 font-mono mt-1">88 / 100</span>
-                <span className="text-[11px] text-slate-400 mt-1">STAR Method Structured</span>
-              </div>
-            </div>
-          )}
-        </GlowCard>
+                <div className="flex justify-end pt-2">
+                  <Link href="/resume" onClick={handleLaunchStudent}>
+                    <Button variant="primary" size="sm">
+                      Upload & Scan Your Resume
+                    </Button>
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
       </section>
 
-      {/* 4. FACULTY / COHORT INTELLIGENCE */}
-      <section id="faculty" className="py-24 px-6 max-w-7xl mx-auto relative z-10 border-t border-white/[0.06]">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-5">
-            <span className="text-xs font-mono text-cyan-400 tracking-widest uppercase">Institution Portal</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-2">
-              Placement Department Cohort Analytics
-            </h2>
-            <p className="text-sm text-slate-400 mt-4 leading-relaxed">
-              Dean and placement directors gain deep observability into 842 students across CSE and IT branches. Identify systemic skill deficits 60 days before recruiters arrive.
-            </p>
+      {/* Trajectory Sequence */}
+      <section id="trajectory" className="py-20 px-6 max-w-6xl mx-auto relative z-10 border-t border-[var(--border-subtle)]">
+        <div className="text-center mb-16">
+          <Badge variant="indigo" className="mb-3">
+            DETERMINISTIC PATHWAY
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            How CareerOS Gets You Hired
+          </h2>
+        </div>
 
-            <div className="mt-8 flex flex-col gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+        <HighlightGrid className="rounded-3xl p-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {stages.map((st, i) => (
+              <GlowCard key={i} glowColor="indigo" className="p-5 flex flex-col justify-between">
+                <div>
+                  <span className="font-mono text-2xl font-black text-indigo-400 block mb-2">{st.number}</span>
+                  <h4 className="text-sm font-bold text-white mb-1.5">{st.title}</h4>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">{st.desc}</p>
                 </div>
-                <p className="text-xs text-slate-300"><strong className="text-white">Early Risk Detection:</strong> Auto-flags students with &lt;45% readiness before drive commencement.</p>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-violet-400" />
-                </div>
-                <p className="text-xs text-slate-300"><strong className="text-white">1-Click Interventions:</strong> Automatically schedules mock remedial drills and counselor 1-on-1s.</p>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <Link href="/faculty/dashboard" onClick={handleLaunchFaculty}>
-                <CareerButton variant="secondary" size="md" rightIcon={<ArrowUpRight className="w-4 h-4" />}>
-                  Open Faculty Dashboard
-                </CareerButton>
-              </Link>
-            </div>
+              </GlowCard>
+            ))}
           </div>
+        </HighlightGrid>
+      </section>
 
-          <div className="lg:col-span-7">
-            <GlowCard className="p-6 md:p-8 bg-[#0B0F16]/90 border border-white/[0.12]">
-              <div className="grid grid-cols-3 gap-4 pb-6 border-b border-white/[0.08] text-center">
-                <div>
-                  <span className="text-[11px] font-mono text-slate-400 uppercase">Total Cohort</span>
-                  <div className="text-2xl font-black text-white font-mono mt-1">842</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-mono text-slate-400 uppercase">Avg Readiness</span>
-                  <div className="text-2xl font-black text-cyan-400 font-mono mt-1">58%</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-mono text-slate-400 uppercase">At-Risk</span>
-                  <div className="text-2xl font-black text-amber-400 font-mono mt-1">113</div>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">Cohort Skill Bottlenecks</span>
-                <div>
-                  <div className="flex justify-between text-xs font-mono mb-1">
-                    <span className="text-slate-300">System Design (72% Deficit)</span>
-                    <span className="text-amber-400 font-bold">606 Students</span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full w-[72%]" />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs font-mono mb-1">
-                    <span className="text-slate-300">Multi-Table SQL (61% Deficit)</span>
-                    <span className="text-cyan-400 font-bold">514 Students</span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-cyan-400 rounded-full w-[61%]" />
-                  </div>
-                </div>
-              </div>
-            </GlowCard>
+      {/* Footer */}
+      <footer className="py-12 px-6 border-t border-[var(--border-subtle)] text-center text-xs text-[var(--text-muted)]">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-bold text-white">CareerOS</span>
+            <span>— From Student to Job-Ready.</span>
           </div>
+          <p className="font-mono text-[11px] text-[var(--text-dim)]">
+            © 2026 CareerOS Inc. All rights reserved.
+          </p>
         </div>
-      </section>
-
-      {/* 5. FINAL CALL TO ACTION */}
-      <section className="py-28 px-6 max-w-5xl mx-auto text-center relative z-10 border-t border-white/[0.06]">
-        <div className="flex justify-center mb-6">
-          <AIOrb size={80} state="idle" readinessTrend={10} />
-        </div>
-        <h2 className="text-4xl sm:text-6xl font-black tracking-tighter text-white">
-          Begin Your Career Trajectory Today.
-        </h2>
-        <p className="text-base text-slate-400 max-w-xl mx-auto mt-4">
-          Eliminate placement anxiety with continuous AI readiness scoring, targeted practice sprints, and mock interview simulations.
-        </p>
-
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link href="/signup" onClick={handleLaunchStudent}>
-            <CareerButton variant="momentum" size="lg" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              Create Student Account
-            </CareerButton>
-          </Link>
-          <Link href="/login" onClick={handleLaunchStudent}>
-            <CareerButton variant="ghost" size="lg">
-              Sign In (Demo Account)
-            </CareerButton>
-          </Link>
-        </div>
-      </section>
-
-      {/* Clean Minimal Footer */}
-      <footer className="py-8 px-6 border-t border-white/[0.06] text-center text-xs font-mono text-slate-500">
-        <p>© 2026 CareerOS Intelligence. From Student to Job-Ready. Built for high-velocity universities.</p>
       </footer>
     </div>
   );
