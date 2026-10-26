@@ -13,15 +13,42 @@ export function isSupabaseConfigured(): boolean {
 export function createClient(): SupabaseClient {
   if (browserClient) return browserClient;
 
-  if (!isSupabaseConfigured()) {
-    // Return dummy client or development fallback
+  // On server (SSR), never attempt remote browser auth connection
+  if (typeof window === 'undefined' || !isSupabaseConfigured()) {
     return createBrowserClient(
       'https://placeholder-domain.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder'
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder',
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
     );
   }
 
-  browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      fetch: async (url, options) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2000);
+        try {
+          return await fetch(url, {
+            ...options,
+            signal: options?.signal || controller.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+    },
+  });
   return browserClient;
 }
 

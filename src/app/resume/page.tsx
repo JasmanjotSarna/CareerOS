@@ -171,10 +171,10 @@ export default function ResumePage() {
     <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
+      <div className="flex-1 flex max-w-[1440px] w-full mx-auto px-4 sm:px-6">
         <StudentSidebar />
 
-        <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
+        <main className="min-w-0 flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
             <div>
@@ -204,7 +204,7 @@ export default function ResumePage() {
           </div>
 
           {/* Top Scorecard Banner */}
-          <GlowCard glowColor="cyan" className="p-6 sm:p-8 bg-[var(--surface-primary)] border border-[var(--border-default)]">
+          <Card className="p-6 sm:p-8 border border-[var(--border-default)]">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
               {/* Score Dial */}
               <div className="md:col-span-4 flex flex-col items-center md:items-start text-center md:text-left space-y-2 md:border-r border-[var(--border-subtle)] md:pr-8">
@@ -226,23 +226,23 @@ export default function ResumePage() {
               <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
                   <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Keywords</span>
-                  <span className="text-lg font-mono font-bold text-white mt-1 block">{resumeData.scores.keywordMatch}%</span>
+                  <span className="text-base font-semibold text-[var(--text-primary)] mt-1 block">{resumeData.scores.keywordMatch}%</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
                   <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Impact Metrics</span>
-                  <span className="text-lg font-mono font-bold text-white mt-1 block">{resumeData.scores.impactStatements}%</span>
+                  <span className="text-base font-semibold text-[var(--text-primary)] mt-1 block">{resumeData.scores.impactStatements}%</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
                   <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Formatting</span>
-                  <span className="text-lg font-mono font-bold text-white mt-1 block">{resumeData.scores.formatting}%</span>
+                  <span className="text-base font-semibold text-[var(--text-primary)] mt-1 block">{resumeData.scores.formatting}%</span>
                 </div>
                 <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
                   <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">Role Fit</span>
-                  <span className="text-lg font-mono font-bold text-cyan-400 mt-1 block">{resumeData.scores.roleAlignment}%</span>
+                  <span className="text-base font-semibold text-[var(--accent-secondary)] mt-1 block">{resumeData.scores.roleAlignment}%</span>
                 </div>
               </div>
             </div>
-          </GlowCard>
+          </Card>
 
           {/* Missing Keywords & Suggested Bullet Improvements */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

@@ -15,7 +15,9 @@ export type StorageBucket = typeof STORAGE_BUCKETS[keyof typeof STORAGE_BUCKETS]
  */
 export function getStorageObjectPath(studentId: string, filename: string): string {
   // Sanitize filename to prevent directory traversal or invalid characters
-  const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const sanitizedFilename = filename
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/\.{2,}/g, '.');
   return `${studentId}/${sanitizedFilename}`;
 }
 

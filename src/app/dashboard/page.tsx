@@ -87,10 +87,10 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
+      <div className="flex-1 flex max-w-[1440px] w-full mx-auto px-4 sm:px-6">
         <StudentSidebar />
 
-        <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
+        <main className="min-w-0 flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
           {/* 1. Header Greeting & Primary Action */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
             <div>
@@ -116,7 +116,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 2. Core Readiness Gate Command Visualization */}
-          <GlowCard glowColor="cyan" className="p-6 sm:p-8 bg-[var(--surface-primary)] border border-[var(--border-default)]">
+          <Card className="p-6 sm:p-8 border border-[var(--border-default)]">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
               {/* Primary Score Dial */}
               <div className="flex items-center gap-6">
@@ -141,39 +141,39 @@ export default function DashboardPage() {
 
               {/* Multi-Dimensional Dimension Breakdown */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full lg:w-auto">
-                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-bold">Technical</span>
-                  <span className="text-lg font-mono font-bold text-white mt-1 block">
+                <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block">Technical</span>
+                  <span className="text-base font-semibold text-[var(--text-primary)] mt-1 block">
                     <AnimatedCounter value={readinessScores.technical} suffix="%" />
                   </span>
                 </div>
-                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-bold">Aptitude</span>
-                  <span className="text-lg font-mono font-bold text-white mt-1 block">
+                <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block">Aptitude</span>
+                  <span className="text-base font-semibold text-[var(--text-primary)] mt-1 block">
                     <AnimatedCounter value={readinessScores.aptitude} suffix="%" />
                   </span>
                 </div>
-                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-bold">Communication</span>
-                  <span className="text-lg font-mono font-bold text-white mt-1 block">
+                <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block">Communication</span>
+                  <span className="text-base font-semibold text-[var(--text-primary)] mt-1 block">
                     <AnimatedCounter value={readinessScores.communication} suffix="%" />
                   </span>
                 </div>
-                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-bold">HR STAR</span>
-                  <span className="text-lg font-mono font-bold text-white mt-1 block">
+                <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center">
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block">HR STAR</span>
+                  <span className="text-base font-semibold text-[var(--text-primary)] mt-1 block">
                     <AnimatedCounter value={readinessScores.hr} suffix="%" />
                   </span>
                 </div>
-                <div className="p-3.5 rounded-xl bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center col-span-2 sm:col-span-1">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-bold">Mock Score</span>
-                  <span className="text-lg font-mono font-bold text-cyan-400 mt-1 block">
+                <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border-subtle)] text-center col-span-2 sm:col-span-1">
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase block">Mock Score</span>
+                  <span className="text-base font-semibold text-[var(--accent-secondary)] mt-1 block">
                     <AnimatedCounter value={readinessScores.interview} suffix="%" />
                   </span>
                 </div>
               </div>
             </div>
-          </GlowCard>
+          </Card>
 
           {/* 3. Two-Column Grid: Next Best Action & Critical Skill Gaps */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -193,7 +193,7 @@ export default function DashboardPage() {
                     <div className="p-4 rounded-xl bg-[var(--surface-secondary)] border border-cyan-500/30 flex items-start justify-between gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md border border-[rgba(99,102,241,0.4)] bg-[var(--accent-primary-subtle)] text-[var(--accent-primary)]">
                             NEXT MILESTONE
                           </span>
                           <span className="text-xs text-[var(--text-muted)] font-mono">{nextPendingTask.estimatedMinutes} mins</span>
@@ -205,10 +205,10 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={() => toggleAction('primary-task', nextPendingTask.id)}
-                        className={`p-2.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
+                        className={`p-2 rounded-lg border transition-colors cursor-pointer shrink-0 ${
                           completedActions['primary-task'] || nextPendingTask.status === 'completed'
-                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                            : 'bg-[var(--surface-tertiary)] border-[var(--border-default)] hover:border-cyan-400 text-slate-300'
+                            ? 'bg-[var(--status-success-subtle)] border-[rgba(34,197,94,0.4)] text-[var(--status-success)]'
+                            : 'bg-[var(--surface-secondary)] border-[var(--border-default)] hover:border-[var(--border-hover)] text-[var(--text-secondary)]'
                         }`}
                       >
                         <Check className="w-4 h-4" />
@@ -225,18 +225,18 @@ export default function DashboardPage() {
                       key={act.id}
                       href={act.link}
                       onClick={() => soundFX.playClick()}
-                      className="p-3.5 rounded-xl bg-[var(--surface-secondary)]/60 hover:bg-[var(--surface-secondary)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] flex items-center justify-between transition-colors group"
+                      className="p-3 rounded-lg bg-[var(--surface-secondary)]/60 hover:bg-[var(--surface-secondary)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] flex items-center justify-between transition-colors group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[var(--surface-tertiary)] flex items-center justify-center text-cyan-400">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--surface-tertiary)] flex items-center justify-center text-[var(--accent-primary)]">
                           <act.icon className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-white">{act.title}</p>
+                          <p className="text-xs font-medium text-[var(--text-primary)]">{act.title}</p>
                           <p className="text-[11px] text-[var(--text-muted)]">{act.desc}</p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-[var(--text-dim)] group-hover:text-cyan-400 transition-colors" />
+                      <ChevronRight className="w-4 h-4 text-[var(--text-dim)] group-hover:text-[var(--text-secondary)] transition-colors" />
                     </Link>
                   ))}
                 </div>
@@ -247,7 +247,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-cyan-400" />
-                    Activity & Telemetry Log
+                    Activity & Progress Log
                   </h3>
                   <span className="text-[10px] font-mono text-[var(--text-muted)]">Live Stream</span>
                 </div>
@@ -314,13 +314,13 @@ export default function DashboardPage() {
               </Card>
 
               {/* JECRC / Placement Portal Verified Banner */}
-              <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-center gap-3.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <div className="p-4 rounded-lg bg-[var(--status-success-subtle)] border border-[rgba(34,197,94,0.4)] flex items-center gap-3.5">
+                <div className="w-9 h-9 rounded-lg bg-[var(--status-success-subtle)] flex items-center justify-center text-[var(--status-success)] shrink-0">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white">Placement Sync Active</p>
-                  <p className="text-[11px] text-emerald-300/80 leading-tight">
+                  <p className="text-xs font-medium text-[var(--text-primary)]">Placement Sync Active</p>
+                  <p className="text-[11px] text-[var(--status-success)] leading-tight">
                     Verified candidate profile visible to campus recruiting partners.
                   </p>
                 </div>

@@ -2,42 +2,41 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  Bot, 
-  Sparkles,
-  Volume2, 
-  VolumeX, 
+import {
+  Bot,
+  Volume2,
+  VolumeX,
   ChevronDown,
-  Briefcase,
-  GraduationCap,
-  Users2,
   LogOut,
   User,
-  ShieldCheck,
-  Search
+  Bell,
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
+import { useWorkspace } from '@/lib/workspace/WorkspaceContext';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { MobileNav } from '@/components/navigation/MobileNav';
+import CareerOSLogo from '@/components/brand/CareerOSLogo';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { soundFX } from '@/components/effects/SoundFX';
 import { cn } from '@/lib/utils';
 
 export const TopNav: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { 
-    activePersona, 
-    setPersona, 
-    toggleAiCoach, 
-    studentProfile, 
-    activeTargetRole, 
-    targetRoles, 
+  const {
+    activePersona,
+    setPersona,
+    toggleAiCoach,
+    studentProfile,
+    activeTargetRole,
+    targetRoles,
     setTargetRole,
     readinessScores,
-    signOut
+    signOut,
   } = useApp();
+  const { unreadNotificationCount } = useWorkspace();
 
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -71,49 +70,51 @@ export const TopNav: React.FC = () => {
   }, [studentProfile.fullName, activePersona]);
 
   const getPageTitle = () => {
-    if (pathname === '/' || pathname === '/dashboard') return 'Dashboard';
-    if (pathname === '/suitability') return 'Role Suitability';
-    if (pathname === '/skills') return 'Skill Gap Matrix';
-    if (pathname === '/roadmap') return 'Personalized Roadmap';
-    if (pathname === '/resume') return 'ATS Resume Optimizer';
-    if (pathname === '/interviews/technical') return 'AI Technical Studio';
-    if (pathname === '/interviews/hr') return 'STAR Behavioral Studio';
-    if (pathname === '/communication') return 'Communication Lab';
-    if (pathname === '/aptitude') return 'Aptitude Arena';
-    if (pathname === '/progress') return 'Readiness Telemetry';
-    if (pathname === '/coach') return 'AI Career Strategist';
-    if (pathname === '/profile') return 'Profile & Settings';
-    if (pathname === '/faculty/dashboard') return 'Dean & Placement Console';
-    if (pathname.startsWith('/faculty/students')) return 'Cohort Directory';
-    return 'Career Intelligence';
+    if (pathname === '/app') return 'Command center';
+    if (pathname === '/app/tracker' || pathname === '/applications') return 'Applications';
+    if (pathname === '/' || pathname === '/dashboard') return 'Overview';
+    if (pathname === '/jobs') return 'Job search';
+    if (pathname === '/tasks') return 'Goals & tasks';
+    if (pathname === '/networking') return 'Networking';
+    if (pathname === '/portfolio') return 'Portfolio & projects';
+    if (pathname === '/suitability') return 'Role suitability';
+    if (pathname === '/skills') return 'Skill gaps';
+    if (pathname === '/roadmap') return 'Learning roadmap';
+    if (pathname === '/analytics') return 'Career analytics';
+    if (pathname === '/resume') return 'Resume studio';
+    if (pathname === '/interviews/technical') return 'Technical studio';
+    if (pathname === '/interviews/hr') return 'Behavioral studio';
+    if (pathname === '/communication') return 'Communication lab';
+    if (pathname === '/aptitude') return 'Aptitude arena';
+    if (pathname === '/progress') return 'Readiness progress';
+    if (pathname === '/coach') return 'AI career coach';
+    if (pathname === '/notifications') return 'Notifications';
+    if (pathname === '/settings') return 'Settings & integrations';
+    if (pathname === '/profile') return 'Profile';
+    if (pathname === '/faculty/dashboard') return 'Faculty dashboard';
+    if (pathname.startsWith('/faculty/students')) return 'Cohort';
+    return 'CareerOS';
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/85 backdrop-blur-xl transition-colors">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/90 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
         {/* Left Section: Brand & Breadcrumb */}
-        <div className="flex items-center gap-4 sm:gap-6">
-          <Link
-            href="/"
-            onClick={() => soundFX.playClick()}
-            className="flex items-center gap-2.5 group"
-          >
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 p-0.5 shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform flex items-center justify-center">
-              <div className="w-full h-full bg-[#06090e] rounded-[10px] flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-              </div>
-            </div>
-            <span className="text-base sm:text-lg font-black tracking-tight text-white font-mono">
-              Career<span className="text-cyan-400">OS</span>
-            </span>
-          </Link>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <MobileNav />
+          <CareerOSLogo
+            href={activePersona === 'faculty' ? '/faculty/dashboard' : '/dashboard'}
+            size="md"
+            imageClassName="h-6 sm:h-8"
+            className="shrink-0"
+          />
 
-          <div className="hidden md:flex items-center gap-2 text-xs font-medium text-[var(--text-muted)] border-l border-[var(--border-default)] pl-4">
-            <span className="text-[var(--text-dim)] uppercase tracking-wider font-mono text-[10px]">
-              {activePersona === 'faculty' ? 'FACULTY PORTAL' : 'STUDENT CONSOLE'}
+          <div className="hidden items-center gap-2 border-l border-[var(--border-default)] pl-4 text-xs font-medium text-[var(--text-muted)] md:flex">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-dim)]">
+              {activePersona === 'faculty' ? 'Faculty portal' : 'Career workspace'}
             </span>
             <span>/</span>
-            <span className="text-[var(--text-primary)] font-semibold">{getPageTitle()}</span>
+            <span className="font-semibold text-[var(--text-primary)]">{getPageTitle()}</span>
           </div>
         </div>
 
@@ -131,9 +132,9 @@ export const TopNav: React.FC = () => {
               >
                 <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
                 <span className="text-[var(--text-muted)]">Target:</span>
-                <span className="font-semibold text-[var(--text-primary)]">{activeTargetRole.title}</span>
+                <span className="font-semibold text-[var(--text-primary)]">{activeTargetRole?.title || 'Target Role'}</span>
                 <Badge variant="cyan" className="ml-1 py-0 px-1.5 text-[10px]">
-                  {readinessScores.overall}%
+                  {readinessScores?.overall ?? 0}%
                 </Badge>
                 <ChevronDown className="w-3.5 h-3.5 text-[var(--text-dim)]" />
               </button>
@@ -148,7 +149,7 @@ export const TopNav: React.FC = () => {
                     <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-dim)] font-bold">
                       Switch Placement Target
                     </div>
-                    {targetRoles.map((role) => (
+                    {(targetRoles || []).map((role) => (
                       <button
                         key={role.id}
                         type="button"
@@ -159,7 +160,7 @@ export const TopNav: React.FC = () => {
                         }}
                         className={cn(
                           'w-full flex items-center justify-between p-2.5 rounded-xl text-left text-xs transition-colors cursor-pointer',
-                          activeTargetRole.id === role.id
+                          activeTargetRole?.id === role.id
                             ? 'bg-cyan-500/10 text-cyan-300 font-semibold'
                             : 'text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-white'
                         )}
@@ -181,22 +182,36 @@ export const TopNav: React.FC = () => {
         </div>
 
         {/* Right Section: Actions, AI Copilot Trigger, Persona Switch, User Profile */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* AI Copilot Button */}
-          <button
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-secondary)] hover:text-white"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadNotificationCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-400 px-1 font-mono text-[9px] font-bold text-[#061018]">
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </span>
+            )}
+          </Link>
+
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               soundFX.playClick();
               toggleAiCoach();
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500/10 via-indigo-500/10 to-transparent border border-cyan-500/30 hover:border-cyan-400/60 text-cyan-300 hover:text-white transition-all text-xs font-semibold cursor-pointer shadow-sm"
+            className="hidden gap-2 border border-cyan-500/30 bg-gradient-to-r from-cyan-500/10 to-transparent text-cyan-300 hover:text-white sm:flex"
+            leftIcon={<Bot className="h-4 w-4 text-cyan-400" />}
           >
-            <Bot className="w-4 h-4 text-cyan-400" />
-            <span className="hidden sm:inline">AI Copilot</span>
-            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">
-              ⌘J
-            </span>
-          </button>
+            AI coach
+          </Button>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Sound Toggle */}
           <button
@@ -209,7 +224,7 @@ export const TopNav: React.FC = () => {
           </button>
 
           {/* Persona Switch Toggle */}
-          <div className="flex items-center p-0.5 rounded-xl bg-[var(--surface-primary)] border border-[var(--border-default)]">
+          <div className="hidden items-center p-0.5 rounded-xl bg-[var(--surface-primary)] border border-[var(--border-default)] sm:flex">
             <button
               type="button"
               onClick={() => handlePersonaSwitch('student')}

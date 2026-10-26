@@ -34,6 +34,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'targetRole is required' }, { status: 400 });
     }
 
+    // 0. Action: jobRequirements
+    if (action === 'jobRequirements') {
+      const criticalCount = (targetRole.requiredSkills || []).filter(s => s.critical).length;
+      return NextResponse.json({
+        roleTitle: targetRole.title,
+        category: targetRole.category,
+        totalCompetencies: (targetRole.requiredSkills || []).length,
+        criticalCompetencies: criticalCount,
+        educationExpectation: targetRole.educationExpectations,
+        interviewRounds: targetRole.interviewAreas,
+        salaryExpectation: targetRole.salaryRange
+      });
+    }
+
     // 1. Action: skillGaps
     if (action === 'skillGaps') {
       if (!profile) {
@@ -125,24 +139,25 @@ CRITICAL EVALUATION GUIDELINES:
    - resume: overall profile readiness
    - overallMatch: weighted composite (skills 40%, experience 20%, projects 20%, education 10%, resume 10%)
 
-Return ONLY valid JSON strictly matching this schema:
+Return ONLY a valid JSON object with exactly these keys:
 {
-  "overallMatch": number, // 0 to 100
+  "overallMatch": 0,
   "roleId": "${targetRole.id}",
   "roleTitle": "${targetRole.title}",
   "breakdown": {
-    "skills": number,
-    "experience": number,
-    "education": number,
-    "projects": number,
-    "resume": number
+    "skills": 0,
+    "experience": 0,
+    "education": 0,
+    "projects": 0,
+    "resume": 0
   },
-  "strongMatches": string[], // Competencies where candidate meets/exceeds requirements
-  "missingSkills": string[], // Competencies where candidate has deficit
-  "criticalGaps": string[], // Critical non-negotiables the candidate must acquire
-  "aiSummary": string, // 2 sentences synthesizing fit and biggest leverage point
-  "improvementTip": string // 1 concrete actionable recommendation
-}`;
+  "strongMatches": [],
+  "missingSkills": [],
+  "criticalGaps": [],
+  "aiSummary": "",
+  "improvementTip": ""
+}
+All numeric scores must be integers from 0 to 100. strongMatches, missingSkills, and criticalGaps must be arrays of short competency names. aiSummary must be 2 sentences. improvementTip must be 1 concrete action. Do not include comments, markdown, or any text outside the JSON object.`;
 
     const userPrompt = `Target Role: ${targetRole.title} (${targetRole.category})
 Salary Range: ${targetRole.salaryRange}

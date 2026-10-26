@@ -11,7 +11,7 @@ interface AIStreamingVisualizerProps {
 
 export function AIStreamingVisualizer({
   label = "CareerOS Copilot is thinking...",
-  sublabel = "Evaluating telemetry & real-time career benchmarks",
+  sublabel = "Evaluating skills & real-time career benchmarks",
   variant = "bars",
   className = "",
 }: AIStreamingVisualizerProps) {

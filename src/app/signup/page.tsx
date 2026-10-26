@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowRight, 
@@ -12,8 +11,7 @@ import {
   Building2, 
   GraduationCap, 
   School, 
-  MailCheck, 
-  Sparkles 
+  MailCheck
 } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -21,6 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, GlowCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { soundFX } from '@/components/effects/SoundFX';
+import CareerOSLogo from '@/components/brand/CareerOSLogo';
 
 interface InstitutionMatch {
   id: string;
@@ -183,21 +182,12 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-canvas)] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center relative z-10 space-y-3">
-        <Link href="/" className="inline-flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 p-0.5 flex items-center justify-center shadow-lg shadow-cyan-500/25">
-            <div className="w-full h-full bg-[#06090e] rounded-[10px] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-cyan-400" />
-            </div>
-          </div>
-          <span className="font-mono text-xl font-extrabold tracking-tight text-white">
-            Career<span className="text-cyan-400">OS</span>
-          </span>
-        </Link>
+        <CareerOSLogo href="/" size="md" imageClassName="h-9" />
         <h2 className="text-2xl font-black tracking-tight text-white">
           Create your {signupType === 'student' ? 'Student' : 'Faculty'} Account
         </h2>
         <p className="text-xs text-[var(--text-muted)]">
-          Continuous telemetry between university and elite employment.
+          Continuous alignment between preparation and top career opportunities.
         </p>
       </div>
 

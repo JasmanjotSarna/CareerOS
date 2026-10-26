@@ -121,10 +121,10 @@ export default function CommunicationPage() {
     <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
+      <div className="flex-1 flex max-w-[1440px] w-full mx-auto px-4 sm:px-6">
         <StudentSidebar />
 
-        <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
+        <main className="min-w-0 flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
             <div>
@@ -208,7 +208,7 @@ export default function CommunicationPage() {
           {metric && (
             <Card className="p-6 sm:p-8 bg-[var(--surface-primary)] border border-[var(--border-default)] space-y-6">
               <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
-                <Badge variant="cyan">Drill Analysis Telemetry</Badge>
+                <Badge variant="cyan">Drill Analysis Metrics</Badge>
                 <span className="text-xs font-mono text-emerald-400 font-bold">+2% Communication Readiness</span>
               </div>
 

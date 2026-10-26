@@ -63,10 +63,10 @@ export default function RoadmapPage() {
     <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
+      <div className="flex-1 flex max-w-[1440px] w-full mx-auto px-4 sm:px-6">
         <StudentSidebar />
 
-        <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
+        <main className="min-w-0 flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
             <div>

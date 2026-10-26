@@ -15,6 +15,14 @@ const routes = [
   '/progress',
   '/profile',
   '/coach',
+  '/jobs',
+  '/applications',
+  '/portfolio',
+  '/networking',
+  '/tasks',
+  '/notifications',
+  '/analytics',
+  '/settings',
   '/faculty/dashboard',
   '/faculty/students',
 ];
@@ -24,14 +32,20 @@ async function checkRoutes() {
   let failures = 0;
   for (const route of routes) {
     try {
+      const isFaculty = route.startsWith('/faculty');
+      const cookie = isFaculty
+        ? 'careeros_demo_session=faculty; careeros_persona=faculty'
+        : 'careeros_demo_session=student; careeros_persona=student';
       const res = await fetch(`http://localhost:3000${route}`, {
         headers: {
-          // Send demo cookies so protected routes return 200 instead of redirect
-          'Cookie': 'careeros_demo_session=faculty; careeros_persona=faculty'
+          'Cookie': cookie,
+          'Connection': 'close'
         },
-        redirect: 'manual'
+        redirect: 'manual',
+        signal: AbortSignal.timeout(30000)
       });
       const status = res.status;
+      await res.text();
       if (status >= 200 && status < 400) {
         console.log(`✓ [${status}] ${route}`);
       } else {
@@ -76,16 +90,19 @@ async function checkRoutes() {
     { url: '/api/ai/technical', body: { action: 'generateQuestion', roleTitle: 'Software Engineer — SDE-1', difficulty: 'Medium' } },
     { url: '/api/ai/hr', body: { action: 'generateQuestion', category: 'Behavioral', experienceLevel: 'fresher' } },
     { url: '/api/ai/communication', body: { transcript: 'I think that, like, we should definitely optimize our database queries.', targetDurationSeconds: 60 } },
-    { url: '/api/ai/faculty', body: { studentName: 'Test Student', riskFactors: ['Low readiness in DSA'], targetRole: 'Software Engineer — SDE-1' } },
+    { url: '/api/ai/faculty', body: { studentName: 'Test Student', riskFactors: ['Low readiness in DSA'], targetRole: 'Software Engineer — SDE-1' }, isFaculty: true },
   ];
 
   for (const item of aiRoutes) {
     try {
+      const cookie = item.isFaculty
+        ? 'careeros_demo_session=faculty; careeros_persona=faculty'
+        : 'careeros_demo_session=student; careeros_persona=student';
       const res = await fetch(`http://localhost:3000${item.url}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Cookie': 'careeros_demo_session=student; careeros_persona=student'
+          'Cookie': cookie
         },
         body: JSON.stringify(item.body)
       });

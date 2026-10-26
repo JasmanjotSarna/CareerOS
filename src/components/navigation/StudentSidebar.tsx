@@ -3,113 +3,72 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
-import {
-  LayoutDashboard,
-  Target,
-  GitPullRequest,
-  Map,
-  FileCheck,
-  Code2,
-  Users2,
-  Mic,
-  Brain,
-  TrendingUp,
-  Bot,
-  ChevronRight,
-  ShieldCheck,
-  Flame
-} from 'lucide-react';
+import { ChevronRight, Flame, ShieldCheck, Cloud, CloudOff } from 'lucide-react';
 import { useApp } from '@/lib/context/AppContext';
+import { useWorkspace } from '@/lib/workspace/WorkspaceContext';
 import { ProgressRing } from '@/components/ui/ProgressRing';
+import { STUDENT_NAV_SECTIONS } from '@/components/navigation/navConfig';
 import { soundFX } from '@/components/effects/SoundFX';
 import { cn } from '@/lib/utils';
 
 export const StudentSidebar: React.FC = () => {
   const pathname = usePathname();
-  const { 
-    readinessScores, 
-    activeTargetRole, 
-    studentProfile, 
-    suitability, 
-    roadmapWeeks, 
-    resumeData 
+  const {
+    readinessScores,
+    activeTargetRole,
+    studentProfile,
+    suitability,
+    roadmapWeeks,
+    resumeData,
   } = useApp();
+  const { unreadNotificationCount, tablesAvailable, supabaseConfigured } = useWorkspace();
 
-  const allTasks = useMemo(() => roadmapWeeks.flatMap(w => w.tasks), [roadmapWeeks]);
-  const completedTasks = useMemo(() => allTasks.filter(t => t.status === 'completed'), [allTasks]);
+  const allTasks = useMemo(() => roadmapWeeks.flatMap((w) => w.tasks), [roadmapWeeks]);
+  const completedTasks = useMemo(() => allTasks.filter((t) => t.status === 'completed'), [allTasks]);
   const roadmapProgress = allTasks.length > 0 ? Math.round((completedTasks.length / allTasks.length) * 100) : 0;
 
-  interface NavItem {
-    label: string;
-    href: string;
-    icon: React.ComponentType<{ className?: string }>;
-    badge?: string;
-    pulse?: boolean;
-  }
-
-  const navSections: Array<{ title: string; items: NavItem[] }> = [
-    {
-      title: 'CORE DIAGNOSTICS',
-      items: [
-        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-        { label: 'Role Suitability', href: '/suitability', icon: Target, badge: `${suitability.overallMatch}%` },
-        { label: 'Skill Gap Matrix', href: '/skills', icon: GitPullRequest },
-        { label: 'Sprint Roadmap', href: '/roadmap', icon: Map, badge: `${roadmapProgress}%` },
-        { label: 'ATS Resume Studio', href: '/resume', icon: FileCheck, badge: resumeData.atsScore > 0 ? `${resumeData.atsScore}` : 'New' },
-      ],
-    },
-    {
-      title: 'INTERVIEW & DRILLS',
-      items: [
-        { label: 'AI Technical Studio', href: '/interviews/technical', icon: Code2 },
-        { label: 'STAR Behavioral Studio', href: '/interviews/hr', icon: Users2 },
-        { label: 'Aptitude Arena', href: '/aptitude', icon: Brain },
-        { label: 'Communication Lab', href: '/communication', icon: Mic },
-      ],
-    },
-    {
-      title: 'INTELLIGENCE & COACH',
-      items: [
-        { label: 'Readiness Telemetry', href: '/progress', icon: TrendingUp },
-        { label: 'AI Career Coach', href: '/coach', icon: Bot, pulse: true },
-      ],
-    },
-  ];
+  const badgeFor = (href: string): string | undefined => {
+    if (href === '/suitability') return suitability?.overallMatch !== undefined ? `${suitability.overallMatch}%` : undefined;
+    if (href === '/roadmap') return `${roadmapProgress}%`;
+    if (href === '/resume') return (resumeData?.atsScore || 0) > 0 ? `${resumeData.atsScore}` : 'New';
+    if (href === '/notifications' && unreadNotificationCount > 0) return `${unreadNotificationCount}`;
+    return undefined;
+  };
 
   return (
-    <aside className="w-64 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-canvas)] flex flex-col justify-between py-6 px-4 min-h-[calc(100vh-4rem)] select-none">
+    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 select-none flex-col justify-between overflow-y-auto border-r border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-5 lg:flex">
       <div className="space-y-6">
-        {/* Dynamic Target Role & Readiness Hero Card */}
-        <div className="p-4 rounded-2xl bg-[var(--surface-primary)] border border-[var(--border-default)] shadow-sm">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-primary)] p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <ProgressRing value={readinessScores.overall} size={54} strokeWidth={5} variant="cyan" />
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] font-bold">
-                READINESS GATE
+            <ProgressRing value={readinessScores?.overall ?? 0} size={54} strokeWidth={5} variant="cyan" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Readiness
               </div>
-              <div className="text-xs font-bold text-[var(--text-primary)] truncate mt-0.5">
-                {activeTargetRole.title}
+              <div className="mt-0.5 truncate text-xs font-bold text-[var(--text-primary)]">
+                {activeTargetRole?.title || 'Target Role'}
               </div>
-              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium mt-1">
-                <Flame className="w-3 h-3 text-amber-400" />
-                <span>+{readinessScores.weeklyDelta}% this week</span>
+              <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-emerald-400">
+                <Flame className="h-3 w-3 text-amber-400" />
+                <span>+{readinessScores?.weeklyDelta ?? 0}% this week</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Navigation Groups */}
-        <nav className="space-y-5">
-          {navSections.map((section) => (
+        <nav className="space-y-5" aria-label="Primary">
+          {STUDENT_NAV_SECTIONS.map((section) => (
             <div key={section.title} className="space-y-1">
-              <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)] font-mono">
+              <div className="px-3 text-[10px] uppercase tracking-[0.12em] text-[var(--text-dim)]">
                 {section.title}
               </div>
 
               {section.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                const badge = badgeFor(item.href);
 
                 return (
                   <Link
@@ -117,30 +76,34 @@ export const StudentSidebar: React.FC = () => {
                     href={item.href}
                     onMouseEnter={() => soundFX.playHover()}
                     onClick={() => soundFX.playClick()}
+                    aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150',
+                      'group relative flex items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition-colors duration-150',
                       isActive
-                        ? 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-200 font-semibold shadow-sm border border-cyan-500/30'
-                        : 'text-[var(--text-secondary)] hover:text-white hover:bg-[var(--surface-primary)]'
+                        ? 'bg-[var(--accent-primary-subtle)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]'
                     )}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <Icon
                         className={cn(
-                          'w-4 h-4 transition-colors shrink-0',
-                          isActive ? 'text-cyan-400' : 'text-[var(--text-muted)] group-hover:text-cyan-300'
+                          'h-4 w-4 shrink-0 transition-colors',
+                          isActive ? 'text-[var(--signal)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'
                         )}
                       />
                       <span className="truncate">{item.label}</span>
                     </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {item.pulse && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                      )}
-                      {item.badge && (
-                        <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded-md bg-[var(--surface-secondary)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
-                          {item.badge}
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {badge && (
+                        <span
+                          className={cn(
+                            'rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold',
+                            item.href === '/notifications'
+                              ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300'
+                              : 'border-[var(--border-subtle)] bg-[var(--surface-secondary)] text-[var(--text-muted)]'
+                          )}
+                        >
+                          {badge}
                         </span>
                       )}
                     </div>
@@ -152,27 +115,40 @@ export const StudentSidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Footer / University Status Pill */}
-      <div className="pt-4 border-t border-[var(--border-subtle)]">
+      <div className="space-y-2 border-t border-[var(--border-subtle)] pt-4">
+        <div
+          className="flex items-center gap-2 px-2 text-[10px] font-mono text-[var(--text-dim)]"
+          title={
+            supabaseConfigured && tablesAvailable
+              ? 'Workspace data is synced to your Supabase account.'
+              : 'Workspace data is currently stored in this browser.'
+          }
+        >
+          {supabaseConfigured && tablesAvailable ? (
+            <Cloud className="h-3 w-3 text-emerald-400" />
+          ) : (
+            <CloudOff className="h-3 w-3 text-amber-400" />
+          )}
+          <span>{supabaseConfigured && tablesAvailable ? 'Cloud sync active' : 'Local workspace'}</span>
+        </div>
+
         <Link
           href="/profile"
           onClick={() => soundFX.playClick()}
-          className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--surface-primary)] hover:bg-[var(--surface-secondary)] border border-[var(--border-subtle)] transition-colors group"
+          className="group flex items-center justify-between rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-2.5 transition-colors hover:bg-[var(--surface-secondary)]"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-              <ShieldCheck className="w-4 h-4" />
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+              <ShieldCheck className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate">
-                {studentProfile.university || 'Placement Sync'}
+              <p className="truncate text-[11px] font-semibold text-[var(--text-primary)]">
+                {studentProfile.university || 'Your profile'}
               </p>
-              <p className="text-[9px] text-emerald-400 font-mono">
-                Verified Candidate
-              </p>
+              <p className="font-mono text-[9px] text-[var(--text-muted)]">Candidate account</p>
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-white" />
+          <ChevronRight className="h-3.5 w-3.5 text-[var(--text-muted)] group-hover:text-white" />
         </Link>
       </div>
     </aside>

@@ -35,45 +35,54 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressRing';
 
 export default function ProgressPage() {
-  const { readinessScores, activeTargetRole, roadmapWeeks, recentEvents } = useApp();
+  const { readinessScores: appScores, activeTargetRole } = useApp();
+  const scores = appScores || {
+    overall: 72,
+    technical: 68,
+    aptitude: 75,
+    communication: 74,
+    hr: 70,
+    interview: 72,
+    weeklyDelta: 4,
+  };
 
   const trajectoryData = [
     { week: 'W1', readiness: 42, technical: 45, communication: 40, interview: 38 },
     { week: 'W2', readiness: 54, technical: 58, communication: 48, interview: 48 },
     { week: 'W3', readiness: 66, technical: 70, communication: 55, interview: 60 },
-    { week: 'W4 (Current)', readiness: readinessScores.overall, technical: readinessScores.technical, communication: readinessScores.communication, interview: readinessScores.interview },
+    { week: 'W4 (Current)', readiness: scores.overall, technical: scores.technical, communication: scores.communication, interview: scores.interview },
   ];
 
   const dimensionComparison = [
-    { dimension: 'Technical', current: readinessScores.technical, baseline: 50 },
-    { dimension: 'Aptitude', current: readinessScores.aptitude, baseline: 50 },
-    { dimension: 'Communication', current: readinessScores.communication, baseline: 50 },
-    { dimension: 'HR STAR', current: readinessScores.hr, baseline: 50 },
-    { dimension: 'Interview Mock', current: readinessScores.interview, baseline: 50 },
+    { dimension: 'Technical', current: scores.technical, baseline: 50 },
+    { dimension: 'Aptitude', current: scores.aptitude, baseline: 50 },
+    { dimension: 'Communication', current: scores.communication, baseline: 50 },
+    { dimension: 'HR STAR', current: scores.hr, baseline: 50 },
+    { dimension: 'Interview Mock', current: scores.interview, baseline: 50 },
   ];
 
-  const netGrowth = Math.max(0, readinessScores.overall - 42);
+  const netGrowth = Math.max(0, scores.overall - 42);
 
   return (
     <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
+      <div className="flex-1 flex max-w-[1440px] w-full mx-auto px-4 sm:px-6">
         <StudentSidebar />
 
-        <main className="flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
+        <main className="min-w-0 flex-1 py-8 md:px-8 space-y-8 overflow-hidden">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs font-mono mb-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                <span>LONGITUDINAL PERFORMANCE TELEMETRY</span>
+                <span>LONGITUDINAL PERFORMANCE TRACKING</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Readiness & Growth Trajectory
               </h1>
               <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-                Tracking your trajectory against {activeTargetRole.title} placement standards.
+                Tracking your trajectory against {activeTargetRole?.title || 'Software Engineer'} placement standards.
               </p>
             </div>
 

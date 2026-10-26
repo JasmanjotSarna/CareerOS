@@ -100,35 +100,52 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Authenticate user via @supabase/ssr session cookies
+    // Authenticate user via @supabase/ssr session cookies (only if cookies exist)
     const cookieStore = await cookies();
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const hasSupabaseCookies = cookieStore.getAll().some(c =>
+      c.name.startsWith('sb-') || c.name.includes('auth-token')
+    );
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.delete({ name, ...options });
-        },
-      },
-    });
+    let user = null;
+    let supabase: any = null;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (supabaseUrl && supabaseAnonKey && hasSupabaseCookies) {
+      try {
+        supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+          cookies: {
+            get(name: string) {
+              return cookieStore.get(name)?.value;
+            },
+            set(name: string, value: string, options: CookieOptions) {
+              cookieStore.set({ name, value, ...options });
+            },
+            remove(name: string, options: CookieOptions) {
+              cookieStore.delete({ name, ...options });
+            },
+          },
+        });
+
+        const getUserPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((_, reject) =>
+          setTimeout(() => reject(new Error('Auth timeout')), 2500)
+        );
+
+        const result = await Promise.race([getUserPromise, timeoutPromise]);
+        user = result.data?.user || null;
+      } catch {
+        user = null;
+      }
+    }
 
     let storagePath = '';
     const userId = user?.id;
 
     // Upload to private Supabase Storage bucket 'resumes' if user is authenticated
-    if (userId && fileBuffer) {
+    if (supabase && userId && fileBuffer) {
       storagePath = `${userId}/${Date.now()}_${sanitizeFilename(fileName)}`;
       const { error: uploadError } = await supabase.storage
         .from('resumes')

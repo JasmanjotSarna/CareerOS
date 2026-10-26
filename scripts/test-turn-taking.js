@@ -67,7 +67,24 @@ async function runTests() {
 
   // Test 5: Latency Benchmark on /api/ai/interview/turn
   console.log('[Test 5] Measuring Server-Side Reasoning Latency & TTFT on /api/ai/interview/turn...');
+  const interviewId = `turn-test-${Date.now()}`;
+  const cookies = 'careeros_demo_session=student; careeros_persona=student';
+
+  // 1. Grant consent first
+  await fetch('http://localhost:3000/api/ai/interview/consent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Cookie': cookies },
+    body: JSON.stringify({
+      interviewId,
+      interviewType: 'technical',
+      microphoneConsent: true,
+      recordingConsent: true,
+      aiAnalysisConsent: true
+    })
+  });
+
   const payload = {
+    interviewId,
     interviewType: 'technical',
     targetRole: 'Software Engineer — SDE-1',
     currentTopic: 'Arrays & Hash Sets',
@@ -83,7 +100,7 @@ async function runTests() {
   try {
     const res = await fetch('http://localhost:3000/api/ai/interview/turn', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Cookie': cookies },
       body: JSON.stringify(payload)
     });
 

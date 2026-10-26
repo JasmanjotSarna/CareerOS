@@ -4,86 +4,111 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { soundFX } from "@/components/effects/SoundFX";
+import { cn } from "@/lib/utils";
 
 interface CareerOSLogoProps {
   variant?: "full" | "icon" | "badge" | "capsule";
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
+  /** Overrides the image height, e.g. "h-6 sm:h-8". */
+  imageClassName?: string;
+  /** "auto" plates the logo only in dark mode; "always" is for permanent dark surfaces. */
+  plate?: "auto" | "always" | "never";
   href?: string;
   showTagline?: boolean;
 }
+
+const HEIGHT_CLASSES = {
+  xs: "h-5",
+  sm: "h-6",
+  md: "h-8",
+  lg: "h-10",
+  xl: "h-12",
+} as const;
+
+const ICON_SIZES = {
+  xs: 20,
+  sm: 24,
+  md: 32,
+  lg: 40,
+  xl: 48,
+} as const;
 
 export default function CareerOSLogo({
   variant = "badge",
   size = "md",
   className = "",
+  imageClassName,
+  plate = "auto",
   href,
   showTagline = true,
 }: CareerOSLogoProps) {
-  // Height configurations preserving exact proportions
-  const sizeMap = {
-    xs: { h: 24, w: 82, iconSize: 24 },
-    sm: { h: 30, w: 103, iconSize: 30 },
-    md: { h: 38, w: 130, iconSize: 38 },
-    lg: { h: 48, w: 165, iconSize: 48 },
-    xl: { h: 64, w: 220, iconSize: 64 },
-  };
+  const imageHeight = imageClassName ?? HEIGHT_CLASSES[size];
 
-  const { h, w, iconSize } = sizeMap[size];
+  const wordmark = (
+    <Image
+      src="/brand/careeros-logo.png"
+      alt="CareerOS"
+      width={762}
+      height={262}
+      className={cn("w-auto object-contain", imageHeight)}
+      priority
+    />
+  );
 
   const content = (() => {
     switch (variant) {
       case "icon":
         return (
-          <div className={`relative inline-flex items-center justify-center flex-shrink-0 ${className}`}>
+          <span className={cn("relative inline-flex flex-shrink-0 items-center justify-center", className)}>
             <Image
               src="/brand/careeros-icon-transparent.png"
-              alt="CareerOS Icon"
-              width={iconSize}
-              height={iconSize}
-              className="object-contain filter drop-shadow-[0_0_12px_rgba(6,182,212,0.35)] transition-transform duration-300 hover:scale-105"
+              alt="CareerOS"
+              width={ICON_SIZES[size]}
+              height={ICON_SIZES[size]}
+              className="object-contain transition-transform duration-300 hover:scale-105"
               priority
             />
-          </div>
+          </span>
         );
 
       case "capsule":
       case "badge":
         return (
-          <div
-            className={`inline-flex items-center gap-2.5 rounded-xl bg-white/95 px-3 py-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.2)] backdrop-blur-sm border border-slate-200 transition-all duration-300 hover:bg-white hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] ${className}`}
+          <span
+            className={cn(
+              "inline-flex items-center justify-center rounded-lg px-2 py-1 transition-all duration-300",
+              plate !== "never" &&
+                "dark:border dark:border-black/10 dark:bg-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.28)]",
+              plate === "always" &&
+                "border border-black/10 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.28)]",
+              className
+            )}
           >
-            <Image
-              src="/brand/careeros-logo.png"
-              alt="CareerOS — From Student to Job-Ready"
-              width={w}
-              height={h}
-              className="object-contain"
-              priority
-            />
-          </div>
+            {wordmark}
+          </span>
         );
 
       case "full":
       default:
         return (
-          <div className={`relative inline-flex flex-col items-start ${className}`}>
-            <div className="rounded-xl bg-white p-2 shadow-md border border-slate-200">
-              <Image
-                src="/brand/careeros-logo.png"
-                alt="CareerOS — From Student to Job-Ready"
-                width={w * 1.5}
-                height={h * 1.5}
-                className="object-contain"
-                priority
-              />
-            </div>
+          <span className={cn("relative inline-flex flex-col items-start", className)}>
+            <span
+              className={cn(
+                "rounded-xl p-2",
+                plate !== "never" &&
+                  "dark:border dark:border-black/10 dark:bg-white dark:shadow-md",
+                plate === "always" && "border border-black/10 bg-white shadow-md"
+              )}
+            >
+              {wordmark}
+            </span>
             {showTagline && (
-              <span className="text-[11px] font-mono text-slate-400 pt-1 tracking-wider uppercase font-semibold">
+              <span className="pt-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 From Student to Job-Ready.
               </span>
             )}
-          </div>
+          </span>
         );
     }
   })();
@@ -95,7 +120,8 @@ export default function CareerOSLogo({
         onMouseEnter={() => soundFX.playHover()}
         onClick={() => soundFX.playClick()}
         data-cursor-text="HOME"
-        className="inline-flex items-center transition-opacity hover:opacity-95 cursor-pointer"
+        aria-label="CareerOS home"
+        className="inline-flex shrink-0 items-center rounded-lg transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-canvas)]"
       >
         {content}
       </Link>

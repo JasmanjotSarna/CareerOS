@@ -3,7 +3,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-export type BadgeVariant = 'cyan' | 'indigo' | 'momentum' | 'success' | 'warning' | 'danger' | 'neutral' | 'ai';
+export type BadgeVariant = 'lime' | 'cyan' | 'indigo' | 'momentum' | 'success' | 'warning' | 'danger' | 'neutral' | 'ai';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
@@ -18,17 +18,19 @@ export const Badge: React.FC<BadgeProps> = ({
   ...props
 }) => {
   const variantStyles: Record<BadgeVariant, string> = {
-    cyan: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25',
-    indigo: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/25',
-    momentum: 'bg-amber-500/10 text-amber-300 border-amber-500/25',
-    success: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
-    warning: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/25',
-    danger: 'bg-rose-500/10 text-rose-300 border-rose-500/25',
+    lime: 'bg-[var(--accent-primary-subtle)] text-[var(--signal)] border-[var(--signal)]/40',
+    cyan: 'bg-[var(--accent-secondary-subtle)] text-[var(--accent-secondary)] border-[rgba(34,211,238,0.4)]',
+    indigo: 'bg-[var(--accent-primary-subtle)] text-[var(--accent-primary)] border-[rgba(99,102,241,0.4)]',
+    momentum: 'bg-[var(--accent-momentum-subtle)] text-[var(--accent-momentum)] border-[rgba(245,158,11,0.4)]',
+    success: 'bg-[var(--status-success-subtle)] text-[var(--status-success)] border-[rgba(34,197,94,0.4)]',
+    warning: 'bg-[var(--status-warning-subtle)] text-[var(--status-warning)] border-[rgba(245,158,11,0.4)]',
+    danger: 'bg-[var(--status-danger-subtle)] text-[var(--status-danger)] border-[rgba(239,68,68,0.4)]',
     neutral: 'bg-[var(--surface-tertiary)] text-[var(--text-secondary)] border-[var(--border-default)]',
-    ai: 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-200 border-cyan-400/30',
+    ai: 'bg-[var(--accent-primary-subtle)] text-[var(--text-primary)] border-[rgba(99,102,241,0.4)]',
   };
 
   const dotColors: Record<BadgeVariant, string> = {
+    lime: 'bg-[var(--signal)]',
     cyan: 'bg-cyan-400',
     indigo: 'bg-indigo-400',
     momentum: 'bg-amber-400',
@@ -42,7 +44,7 @@ export const Badge: React.FC<BadgeProps> = ({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium border tracking-wide uppercase',
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium border tracking-wide uppercase',
         variantStyles[variant],
         className
       )}

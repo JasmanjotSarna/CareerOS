@@ -39,7 +39,7 @@ export const FacultySidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-64 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-canvas)] flex flex-col justify-between py-6 px-4 min-h-[calc(100vh-4rem)] select-none">
+    <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 select-none flex-col justify-between overflow-y-auto border-r border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-4 py-6 lg:flex">
       <div className="space-y-6">
         {/* Placement Telemetry Summary Card */}
         <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-[var(--surface-primary)] border border-indigo-500/30 shadow-sm">

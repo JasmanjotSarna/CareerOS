@@ -40,10 +40,10 @@ export default function FacultyStudentDetailPage({ params }: { params: Promise<{
     <div className="min-h-screen bg-[#080B12] text-slate-100 flex flex-col">
       <TopNav />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex max-w-[1440px] w-full mx-auto">
         <FacultySidebar />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8 overflow-y-auto">
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8 space-y-8 overflow-y-auto">
           {/* Breadcrumb / Back */}
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <Link href="/faculty/students" className="hover:text-white flex items-center gap-1">

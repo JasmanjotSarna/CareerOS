@@ -607,11 +607,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const reloadUserData = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await hydrateForUser(user.id, user.email, user.user_metadata);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await hydrateForUser(user.id, user.email, user.user_metadata);
+      }
+    } catch (e) {
+      console.warn('reloadUserData failed:', e);
     }
   }, [hydrateForUser]);
+
+  // Restore the demo persona from its cookie on mount. This runs regardless of
+  // Supabase configuration so the faculty workspace survives a reload even when
+  // mock auth is enabled; hydrateForUser may still override it from the real role.
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|;\s*)careeros_persona=(student|faculty)(?:;|$)/);
+    if (match) {
+      setActivePersona(match[1] as 'student' | 'faculty');
+    }
+  }, []);
 
   // Auth Lifecycle listener
   useEffect(() => {
@@ -622,14 +636,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Initial check
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        hydrateForUser(user.id, user.email, user.user_metadata);
-      } else {
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (user) {
+          hydrateForUser(user.id, user.email, user.user_metadata);
+        } else {
+          setIsLoadingAuth(false);
+          setIsHydrated(true);
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial supabase.auth.getUser failed or timed out:', err);
         setIsLoadingAuth(false);
         setIsHydrated(true);
-      }
-    });
+      });
 
     // Subscribe to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -653,6 +673,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       subscription.unsubscribe();
     };
   }, [hydrateForUser]);
+
+  // Demo fallback: with no authenticated profile there is nothing to sync from
+  // Supabase, so build the starter roadmap locally to keep the roadmap
+  // workspace populated instead of rendering an empty page.
+  useEffect(() => {
+    if (!isHydrated || studentProfile.id || roadmapWeeks.length > 0) return;
+    const gaps = AIService.identifySkillGapsSync(studentProfile, activeTargetRole);
+    setRoadmapWeeks(AIService.generateRoadmap(studentProfile, activeTargetRole, gaps));
+  }, [isHydrated, studentProfile, activeTargetRole, roadmapWeeks.length]);
 
   // Save to user-scoped localStorage when state updates
   useEffect(() => {
@@ -1131,6 +1160,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const setPersona = (persona: 'student' | 'faculty') => {
     setActivePersona(persona);
     document.cookie = `careeros_persona=${persona}; path=/; max-age=86400`;
+    document.cookie = `careeros_demo_session=${persona}; path=/; max-age=86400`;
   };
 
   const toggleAiCoach = (open?: boolean) => {

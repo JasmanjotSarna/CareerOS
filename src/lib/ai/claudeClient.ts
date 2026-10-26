@@ -32,7 +32,17 @@ export async function callClaudeJson<T>({
 }): Promise<T> {
   const client = getAnthropicClient();
   if (!client) {
-    return fallback();
+    try {
+      const { callUniversalAIJson } = await import('./universalAI');
+      return await callUniversalAIJson<T>({
+        systemPrompt,
+        userPrompt,
+        maxTokens,
+        temperature
+      });
+    } catch {
+      return fallback();
+    }
   }
 
   try {

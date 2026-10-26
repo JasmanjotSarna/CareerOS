@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion, HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -17,8 +16,8 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={cn(
-        'surface-card p-5 sm:p-6 relative overflow-hidden bg-[var(--surface-primary)] border border-[var(--border-subtle)]',
-        hoverEffect && 'hover:border-[var(--border-hover)] hover:shadow-xl hover:shadow-cyan-500/5 transition-all duration-300',
+        'relative overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] p-5 sm:p-6',
+        hoverEffect && 'transition-colors hover:border-[var(--border-hover)]',
         className
       )}
       {...props}
@@ -43,7 +42,7 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   children,
   ...props
 }) => (
-  <h3 className={cn('text-base sm:text-lg font-bold text-[var(--text-primary)] tracking-tight', className)} {...props}>
+  <h3 className={cn('text-base font-semibold tracking-tight text-[var(--text-primary)] sm:text-lg', className)} {...props}>
     {children}
   </h3>
 );
@@ -68,35 +67,35 @@ export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   </div>
 );
 
-export interface GlowCardProps extends HTMLMotionProps<'div'> {
+export interface GlowCardProps extends React.HTMLAttributes<HTMLDivElement> {
   glowColor?: 'cyan' | 'indigo' | 'momentum' | 'none';
 }
 
 export const GlowCard: React.FC<GlowCardProps> = ({
   children,
   className = '',
-  glowColor = 'cyan',
+  glowColor,
   ...props
 }) => {
-  const glowStyles = {
-    cyan: 'hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.12)]',
-    indigo: 'hover:border-indigo-500/40 hover:shadow-[0_0_30px_rgba(99,102,241,0.12)]',
-    momentum: 'hover:border-amber-500/40 hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]',
-    none: '',
-  };
+  const glowBorderClass =
+    glowColor === 'cyan'
+      ? 'hover:border-cyan-500/40'
+      : glowColor === 'indigo'
+      ? 'hover:border-indigo-500/40'
+      : glowColor === 'momentum'
+      ? 'hover:border-[var(--brand-accent)]'
+      : 'hover:border-[var(--border-hover)]';
 
   return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+    <div
       className={cn(
-        'relative rounded-2xl bg-[var(--surface-primary)] border border-[var(--border-default)] p-6 transition-all duration-300',
-        glowStyles[glowColor],
+        'relative rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] p-6 transition-colors',
+        glowBorderClass,
         className
       )}
       {...props}
     >
       {children}
-    </motion.div>
+    </div>
   );
 };

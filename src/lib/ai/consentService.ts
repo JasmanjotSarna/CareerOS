@@ -57,6 +57,13 @@ async function getSupabaseServerClient() {
 
   if (!supabaseUrl || !supabaseAnonKey) return null;
 
+  // If no Supabase auth session cookie is present, skip remote call immediately
+  const hasSupabaseCookies = cookieStore && typeof cookieStore.getAll === 'function'
+    ? cookieStore.getAll().some((c: any) => c.name.startsWith('sb-') || c.name.includes('auth-token'))
+    : false;
+
+  if (!hasSupabaseCookies) return null;
+
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       get(name: string) {
@@ -67,6 +74,20 @@ async function getSupabaseServerClient() {
       },
       remove(name: string, options) {
         try { cookieStore?.delete({ name, ...options }); } catch {}
+      },
+    },
+    global: {
+      fetch: async (url, options) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2000);
+        try {
+          return await fetch(url, {
+            ...options,
+            signal: options?.signal || controller.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
       },
     },
   });
@@ -216,10 +237,11 @@ export async function verifyInterviewConsent(params: {
 
   // Fallback to memory store if not found in DB
   if (!consent) {
-    consent =
-      (params.interviewId ? memoryConsentStore.get(`session:${params.interviewId}`) : null) ||
-      memoryConsentStore.get(`${userId}:${interviewType}`) ||
-      null;
+    if (params.interviewId) {
+      consent = memoryConsentStore.get(`session:${params.interviewId}`) || null;
+    } else {
+      consent = memoryConsentStore.get(`${userId}:${interviewType}`) || null;
+    }
   }
 
   // 1. Missing Record

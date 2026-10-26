@@ -20,8 +20,12 @@ export async function getAIAuthContext(): Promise<AIAuthContext> {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY;
 
-  // 1. Check real Supabase authentication session first
-  if (supabaseUrl && supabaseKey) {
+  // 1. Check real Supabase authentication session first (only if supabase auth cookies exist)
+  const hasSupabaseCookies = cookieStore.getAll().some(c =>
+    c.name.startsWith('sb-') || c.name.includes('auth-token')
+  );
+
+  if (supabaseUrl && supabaseKey && hasSupabaseCookies) {
     try {
       const supabase = createServerClient(supabaseUrl, supabaseKey, {
         cookies: {
@@ -33,9 +37,12 @@ export async function getAIAuthContext(): Promise<AIAuthContext> {
         },
       });
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const getUserPromise = supabase.auth.getUser();
+      const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((_, reject) =>
+        setTimeout(() => reject(new Error('Auth timeout')), 2500)
+      );
+
+      const { data: { user } } = await Promise.race([getUserPromise, timeoutPromise]);
 
       if (user) {
         // Read profile to verify institution_id and verified role
@@ -72,7 +79,8 @@ export async function getAIAuthContext(): Promise<AIAuthContext> {
     process.env.ENABLE_DEV_MOCK_AUTH === 'true' &&
     process.env.NODE_ENV !== 'production';
 
-  if (isDevMockAllowed && demoCookie) {
+  const activeDemo = demoCookie || personaCookie;
+  if (isDevMockAllowed && activeDemo) {
     const role = (personaCookie || demoCookie || 'student') as 'student' | 'faculty';
     return {
       userId: 'demo-user',

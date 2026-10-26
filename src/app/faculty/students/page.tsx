@@ -61,10 +61,10 @@ function FacultyStudentsContent() {
   };
 
   return (
-    <div className="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6">
+    <div className="flex-1 flex max-w-[1440px] w-full mx-auto px-4 sm:px-6">
       <FacultySidebar />
 
-      <main className="flex-1 py-8 md:px-8 space-y-6 overflow-y-auto">
+      <main className="min-w-0 flex-1 py-8 md:px-8 space-y-6 overflow-y-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--border-subtle)]">
           <div>
